@@ -126,6 +126,15 @@ export async function deleteBill(id: string) {
   return handleResponse(res);
 }
 
+export async function updateBill(id: string, data: any) {
+  const res = await fetch(`${API_BASE}/bills/${id}`, {
+    method: "PUT",
+    headers: authHeaders(),
+    body: JSON.stringify(data),
+  });
+  return handleResponse(res);
+}
+
 // DASHBOARD
 export async function getDashboard() {
   const res = await fetch(`${API_BASE}/dashboard`, {
@@ -140,4 +149,38 @@ export async function getLowStock() {
     headers: authHeaders(),
   });
   return handleResponse(res);
+}
+
+// ATTENDANCE (localStorage based since backend may not have it)
+export function getAttendanceRecords(): any[] {
+  try {
+    return JSON.parse(localStorage.getItem("st_attendance") || "[]");
+  } catch { return []; }
+}
+
+export function saveAttendanceRecord(record: any) {
+  const records = getAttendanceRecords();
+  records.unshift(record);
+  localStorage.setItem("st_attendance", JSON.stringify(records));
+}
+
+// PAYMENT TRACKING (localStorage based)
+export function getPaymentRecords(): any[] {
+  try {
+    return JSON.parse(localStorage.getItem("st_payments") || "[]");
+  } catch { return []; }
+}
+
+export function savePaymentRecord(record: any) {
+  const records = getPaymentRecords();
+  records.push(record);
+  localStorage.setItem("st_payments", JSON.stringify(records));
+}
+
+export function getPaymentsForBill(billId: string): any[] {
+  return getPaymentRecords().filter((p: any) => p.billId === billId);
+}
+
+export function getTotalPaidForBill(billId: string): number {
+  return getPaymentsForBill(billId).reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
 }
