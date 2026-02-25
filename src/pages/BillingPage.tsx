@@ -1,9 +1,9 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { createBill } from "@/lib/api";
+import { createBill, getBills } from "@/lib/api";
 import { Printer, Plus, Trash2, Save } from "lucide-react";
 import InvoicePrint from "@/components/InvoicePrint";
 
@@ -79,6 +79,21 @@ export default function BillingPage() {
   const [hamali, setHamali] = useState<number>(0);
   const [roundedOff, setRoundedOff] = useState<number>(0);
   const [paidAmount, setPaidAmount] = useState<number>(0);
+
+  // Auto-generate invoice number
+  useEffect(() => {
+    getBills().then((data) => {
+      const bills = Array.isArray(data) ? data : [];
+      const maxNum = bills.reduce((max: number, b: any) => {
+        const inv = b.invoiceNo || "";
+        const num = parseInt(inv.replace(/\D/g, ""), 10);
+        return isNaN(num) ? max : Math.max(max, num);
+      }, 0);
+      setInvoiceNo(String(maxNum + 1));
+    }).catch(() => {
+      setInvoiceNo(String(Date.now()).slice(-6));
+    });
+  }, []);
 
   const updateItem = (id: string, field: keyof BillItem, value: any) => {
     setItems((prev) =>
@@ -158,10 +173,8 @@ export default function BillingPage() {
 
       await createBill(payload);
 
-      // Save payment record locally
       if (paidAmount > 0) {
         const { savePaymentRecord } = await import("@/lib/api");
-        // We don't have the bill ID yet from backend, use invoiceNo
         savePaymentRecord({
           billId: invoiceNo,
           customerName: partyName,
@@ -188,12 +201,23 @@ export default function BillingPage() {
     setPartyName("");
     setDate(new Date().toISOString().split("T")[0]);
     setMobile("");
-    setInvoiceNo("");
     setItems([emptyItem()]);
     setHamali(0);
     setRoundedOff(0);
     setPaidAmount(0);
     setShowPrint(false);
+    // Re-generate invoice number
+    getBills().then((data) => {
+      const bills = Array.isArray(data) ? data : [];
+      const maxNum = bills.reduce((max: number, b: any) => {
+        const inv = b.invoiceNo || "";
+        const num = parseInt(inv.replace(/\D/g, ""), 10);
+        return isNaN(num) ? max : Math.max(max, num);
+      }, 0);
+      setInvoiceNo(String(maxNum + 1));
+    }).catch(() => {
+      setInvoiceNo(String(Date.now()).slice(-6));
+    });
   };
 
   return (
@@ -230,7 +254,7 @@ export default function BillingPage() {
           <div className="space-y-3">
             <div className="flex items-center gap-2">
               <Label className="w-20 text-sm font-medium shrink-0">Inv. No.:</Label>
-              <Input value={invoiceNo} onChange={(e) => setInvoiceNo(e.target.value)} placeholder="Invoice number" className="input-focus" />
+              <Input value={invoiceNo} onChange={(e) => setInvoiceNo(e.target.value)} placeholder="Auto-generated" className="input-focus" />
             </div>
             <div className="flex items-center gap-2">
               <Label className="w-20 text-sm font-medium shrink-0">Mob:</Label>
@@ -275,7 +299,7 @@ export default function BillingPage() {
                       <Input value={item.productName} onChange={(e) => updateItem(item.id, "productName", e.target.value)} placeholder="Product name" className="h-8 text-sm border-0 bg-transparent focus-visible:ring-1" />
                       {(item.lessWeightKg > 0 || item.lessWeightGm > 0) && (
                         <span className="text-[10px] text-muted-foreground ml-1">
-                          Less: {item.lessWeightKg > 0 ? `${item.lessWeightKg}kg` : ''}{item.lessWeightGm > 0 ? ` ${item.lessWeightGm}gm` : ''}
+                          {(item.grossWeightKg + item.grossWeightGm/1000).toFixed(1)}-{(item.lessWeightKg + item.lessWeightGm/1000).toFixed(1)}
                         </span>
                       )}
                     </div>

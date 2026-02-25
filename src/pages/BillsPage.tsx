@@ -1,12 +1,14 @@
-import { useState, useEffect } from "react";
-import { getBills, deleteBill, getTotalPaidForBill, savePaymentRecord } from "@/lib/api";
+import { useState, useEffect, useRef } from "react";
+import { getBills, deleteBill, updateBill, getTotalPaidForBill, savePaymentRecord, getProducts, updateProduct } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { FileText, Trash2, Search, Eye, IndianRupee } from "lucide-react";
+import { FileText, Trash2, Search, Eye, IndianRupee, Pencil, Printer, RotateCcw } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import InvoicePrint from "@/components/InvoicePrint";
+import type { BillData, BillItem } from "@/pages/BillingPage";
 
 interface Bill {
   _id: string;
@@ -36,6 +38,15 @@ export default function BillsPage() {
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [payBillId, setPayBillId] = useState("");
   const [payAmount, setPayAmount] = useState(0);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editBill, setEditBill] = useState<Bill | null>(null);
+  const [editPaid, setEditPaid] = useState(0);
+  const [printBill, setPrintBill] = useState<BillData | null>(null);
+  const [returnOpen, setReturnOpen] = useState(false);
+  const [returnBill, setReturnBill] = useState<Bill | null>(null);
+  const [returnItemIdx, setReturnItemIdx] = useState(0);
+  const [returnQty, setReturnQty] = useState(0);
+  const printRef = useRef<HTMLDivElement>(null);
 
   const fetchBillsData = async () => {
     try {
@@ -66,9 +77,7 @@ export default function BillsPage() {
   };
 
   const getBillPaid = (bill: Bill) => {
-    const backendPaid = bill.paidAmount || 0;
-    const localPaid = getTotalPaidForBill(bill._id);
-    return backendPaid + localPaid;
+    return (bill.paidAmount || 0) + getTotalPaidForBill(bill._id);
   };
 
   const getBillPending = (bill: Bill) => {
@@ -81,16 +90,113 @@ export default function BillsPage() {
 
   const handleAddPayment = () => {
     if (payAmount <= 0) return;
-    savePaymentRecord({
-      billId: payBillId,
-      amount: payAmount,
-      date: new Date().toISOString(),
-    });
+    savePaymentRecord({ billId: payBillId, amount: payAmount, date: new Date().toISOString() });
     toast({ title: "Payment Recorded", description: `₹${payAmount} received` });
     setPaymentOpen(false);
     setPayAmount(0);
-    // Force re-render
     setBills([...bills]);
+  };
+
+  // Edit bill
+  const openEditBill = (bill: Bill) => {
+    setEditBill({ ...bill });
+    setEditPaid(getBillPaid(bill));
+    setEditOpen(true);
+  };
+
+  const handleEditSave = async () => {
+    if (!editBill) return;
+    try {
+      const payload = {
+        customerName: editBill.customerName,
+        mobile: editBill.mobile,
+        paidAmount: editPaid,
+        pendingAmount: Math.max(0, (editBill.total || 0) - editPaid),
+        status: editPaid >= (editBill.total || 0) ? "PAID" : "PENDING",
+      };
+      await updateBill(editBill._id, payload);
+      toast({ title: "Bill Updated" });
+      setEditOpen(false);
+      fetchBillsData();
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    }
+  };
+
+  // Print bill
+  const handlePrintBill = (bill: Bill) => {
+    const items: BillItem[] = (bill.items || []).filter((i: any) => i.category !== 'charges').map((i: any, idx: number) => ({
+      id: String(idx),
+      productName: i.productName || "",
+      quantity: i.quantity || 1,
+      grossWeightKg: i.grossWeightKg || 0,
+      grossWeightGm: i.grossWeightGm || 0,
+      lessWeightKg: i.lessWeightKg || 0,
+      lessWeightGm: i.lessWeightGm || 0,
+      unit: i.unit || "Kgs",
+      rate: i.price || 0,
+      netWeight: i.netWeight || i.quantity || 0,
+      amount: i.total || 0,
+    }));
+    const bd: BillData = {
+      partyName: bill.customerName,
+      date: bill.date || bill.createdAt || "",
+      mobile: bill.mobile || "",
+      invoiceNo: bill.invoiceNo || "",
+      items,
+      hamali: bill.hamali || 0,
+      roundedOff: bill.roundedOff || 0,
+      subtotal: bill.subtotal || bill.total || 0,
+      grandTotal: bill.total || 0,
+    };
+    setPrintBill(bd);
+    setTimeout(() => window.print(), 300);
+  };
+
+  // Return item
+  const handleReturn = async () => {
+    if (!returnBill || returnQty <= 0) return;
+    const items = (returnBill.items || []).filter((i: any) => i.category !== 'charges');
+    const item = items[returnItemIdx];
+    if (!item) return;
+
+    try {
+      // Find the product and restock
+      const products = await getProducts();
+      const product = (Array.isArray(products) ? products : []).find((p: any) => p.name === item.productName);
+      if (product) {
+        await updateProduct(product._id, { stock: (product.stock || 0) + returnQty });
+      }
+
+      // Update bill: reduce item qty and total
+      const rate = item.price || 0;
+      const returnAmount = returnQty * rate;
+      const updatedItems = [...returnBill.items];
+      const realIdx = updatedItems.findIndex((i: any) => i.productName === item.productName && i.category !== 'charges');
+      if (realIdx >= 0) {
+        updatedItems[realIdx] = {
+          ...updatedItems[realIdx],
+          quantity: Math.max(0, (updatedItems[realIdx].quantity || 0) - returnQty),
+          netWeight: Math.max(0, (updatedItems[realIdx].netWeight || 0) - returnQty),
+          total: Math.max(0, (updatedItems[realIdx].total || 0) - returnAmount),
+        };
+      }
+      const newTotal = Math.max(0, (returnBill.total || 0) - returnAmount);
+      const paid = getBillPaid(returnBill);
+      await updateBill(returnBill._id, {
+        items: updatedItems,
+        total: newTotal,
+        pendingAmount: Math.max(0, newTotal - paid),
+        status: paid >= newTotal ? "PAID" : "PENDING",
+      });
+
+      toast({ title: "Return Processed", description: `${returnQty} ${item.unit || 'KG'} of ${item.productName} returned. ₹${returnAmount.toFixed(2)} adjusted.` });
+      setReturnOpen(false);
+      setReturnQty(0);
+      fetchBillsData();
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    }
   };
 
   const filtered = bills.filter(b => {
@@ -102,18 +208,17 @@ export default function BillsPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-        <h1 className="page-header text-xl sm:text-2xl md:text-3xl">Bills</h1>
+        <h1 className="page-header text-xl sm:text-2xl md:text-3xl">Customers</h1>
         <Button onClick={() => navigate("/billing")} className="gradient-primary text-primary-foreground hover-glow">New Bill</Button>
       </div>
 
-      {/* Search */}
       <div className="relative max-w-md">
         <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
         <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by customer or invoice..." className="pl-10 input-focus" />
       </div>
 
       {loading ? (
-        <div className="text-center py-12 text-muted-foreground">Loading bills...</div>
+        <div className="text-center py-12 text-muted-foreground">Loading...</div>
       ) : filtered.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground">
           <FileText size={48} className="mx-auto mb-3 opacity-40" />
@@ -132,7 +237,7 @@ export default function BillsPage() {
                   <th className="px-3 py-3 text-right font-semibold">Pending (₹)</th>
                   <th className="px-3 py-3 text-center font-semibold">Status</th>
                   <th className="px-3 py-3 text-center font-semibold">Date</th>
-                  <th className="px-3 py-3 text-center font-semibold w-28">Actions</th>
+                  <th className="px-3 py-3 text-center font-semibold w-36">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -158,8 +263,17 @@ export default function BillsPage() {
                           <button onClick={() => setViewBill(bill)} className="text-muted-foreground hover:text-primary transition-colors p-1" title="View">
                             <Eye size={14} />
                           </button>
+                          <button onClick={() => openEditBill(bill)} className="text-muted-foreground hover:text-primary transition-colors p-1" title="Edit">
+                            <Pencil size={14} />
+                          </button>
+                          <button onClick={() => handlePrintBill(bill)} className="text-muted-foreground hover:text-primary transition-colors p-1" title="Print">
+                            <Printer size={14} />
+                          </button>
+                          <button onClick={() => { setReturnBill(bill); setReturnItemIdx(0); setReturnQty(0); setReturnOpen(true); }} className="text-muted-foreground hover:text-warning transition-colors p-1" title="Return">
+                            <RotateCcw size={14} />
+                          </button>
                           {pending > 0 && (
-                            <button onClick={() => { setPayBillId(bill._id); setPaymentOpen(true); }} className="text-muted-foreground hover:text-success transition-colors p-1" title="Add Payment">
+                            <button onClick={() => { setPayBillId(bill._id); setPaymentOpen(true); }} className="text-muted-foreground hover:text-success transition-colors p-1" title="Pay">
                               <IndianRupee size={14} />
                             </button>
                           )}
@@ -194,9 +308,16 @@ export default function BillsPage() {
               <div className="border-t border-border pt-2">
                 <h4 className="font-semibold mb-1">Items:</h4>
                 {(viewBill.items || []).filter((i: any) => i.category !== 'charges').map((item: any, idx: number) => (
-                  <div key={idx} className="flex justify-between py-0.5">
-                    <span>{item.productName} (×{item.quantity || item.netWeight})</span>
-                    <span className="font-mono">₹{(item.total || 0).toFixed(2)}</span>
+                  <div key={idx} className="py-0.5">
+                    <div className="flex justify-between">
+                      <span className="font-medium">{item.productName}</span>
+                      <span className="font-mono">₹{(item.total || 0).toFixed(2)}</span>
+                    </div>
+                    {(item.grossWeightKg > 0 || item.grossWeightGm > 0) && (
+                      <div className="text-xs text-muted-foreground">
+                        {((item.grossWeightKg || 0) + (item.grossWeightGm || 0)/1000).toFixed(1)}-{((item.lessWeightKg || 0) + (item.lessWeightGm || 0)/1000).toFixed(1)} = {(item.netWeight || item.quantity || 0).toFixed(2)} {item.unit || 'Kgs'}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -210,6 +331,35 @@ export default function BillsPage() {
                   </span>
                 </div>
               </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Bill Dialog */}
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle style={{ fontFamily: 'var(--font-display)' }}>Edit Bill</DialogTitle>
+          </DialogHeader>
+          {editBill && (
+            <div className="space-y-3">
+              <div>
+                <Label>Customer Name</Label>
+                <Input value={editBill.customerName} onChange={(e) => setEditBill({ ...editBill, customerName: e.target.value })} className="input-focus" />
+              </div>
+              <div>
+                <Label>Mobile</Label>
+                <Input value={editBill.mobile || ""} onChange={(e) => setEditBill({ ...editBill, mobile: e.target.value })} className="input-focus" />
+              </div>
+              <div>
+                <Label>Total: ₹{editBill.total?.toFixed(2)}</Label>
+              </div>
+              <div>
+                <Label>Paid Amount (₹)</Label>
+                <Input type="number" value={editPaid || ""} onChange={(e) => setEditPaid(Number(e.target.value))} className="input-focus" />
+              </div>
+              <Button onClick={handleEditSave} className="w-full gradient-primary text-primary-foreground">Save Changes</Button>
             </div>
           )}
         </DialogContent>
@@ -230,6 +380,41 @@ export default function BillsPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Return Dialog */}
+      <Dialog open={returnOpen} onOpenChange={setReturnOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle style={{ fontFamily: 'var(--font-display)' }}>Return Product</DialogTitle>
+          </DialogHeader>
+          {returnBill && (
+            <div className="space-y-3">
+              <div>
+                <Label>Select Item</Label>
+                <select
+                  value={returnItemIdx}
+                  onChange={(e) => setReturnItemIdx(Number(e.target.value))}
+                  className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm"
+                >
+                  {(returnBill.items || []).filter((i: any) => i.category !== 'charges').map((item: any, idx: number) => (
+                    <option key={idx} value={idx}>{item.productName} (Qty: {item.quantity || item.netWeight})</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <Label>Return Quantity (KG)</Label>
+                <Input type="number" value={returnQty || ""} onChange={(e) => setReturnQty(Number(e.target.value))} min={0.01} step="0.01" className="input-focus" />
+              </div>
+              <Button onClick={handleReturn} className="w-full gradient-primary text-primary-foreground">Process Return</Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Print area (hidden) */}
+      <div className="print-area" ref={printRef}>
+        {printBill && <InvoicePrint bill={printBill} />}
+      </div>
     </div>
   );
 }

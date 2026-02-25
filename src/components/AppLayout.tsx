@@ -1,21 +1,20 @@
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Package, ShoppingCart, FileText, AlertTriangle, Menu, X, LogOut, Clock, IndianRupee } from 'lucide-react';
+import { LayoutDashboard, Package, ShoppingCart, FileText, AlertTriangle, Menu, X, LogOut, IndianRupee } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import Footer from './Footer';
 
 const adminNavItems = [
   { title: 'Dashboard', path: '/', icon: LayoutDashboard },
   { title: 'Billing', path: '/billing', icon: ShoppingCart },
-  { title: 'Bills', path: '/bills', icon: FileText },
+  { title: 'Customers', path: '/bills', icon: FileText },
   { title: 'Pending', path: '/pending', icon: IndianRupee },
   { title: 'Products', path: '/products', icon: Package },
   { title: 'Low Stock', path: '/low-stock', icon: AlertTriangle },
-  { title: 'Attendance', path: '/attendance', icon: Clock },
 ];
 
 const userNavItems = [
-  { title: 'Attendance', path: '/attendance', icon: Clock },
+  { title: 'Attendance', path: '/attendance', icon: LayoutDashboard },
 ];
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {

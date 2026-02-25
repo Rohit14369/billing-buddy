@@ -23,8 +23,11 @@ export default function DashboardPage() {
   }, []);
 
   const totalProducts = apiData?.totalProducts ?? apiProducts.length;
-  const totalStock = apiData?.totalStock ?? apiProducts.reduce((s: number, p: any) => s + (p.stock || 0), 0);
-  const lowStockCount = apiData?.lowStockItems ?? apiProducts.filter((p: any) => p.stock <= 50).length;
+  const totalStock = apiData?.totalStock ?? apiProducts.reduce((s: number, p: any) => s + (p.stock || 0) + ((p.stockGm || 0) / 1000), 0);
+  const lowStockCount = apiProducts.filter((p: any) => {
+    const totalKg = (p.stock || 0) + ((p.stockGm || 0) / 1000);
+    return totalKg <= 50;
+  }).length;
   const totalRevenue = apiData?.totalRevenue ?? apiBills.reduce((s: number, b: any) => s + (b.total || 0), 0);
 
   // Profit proportional to received payment
@@ -42,7 +45,6 @@ export default function DashboardPage() {
       totalPaid += billPaid;
       totalPending += billPending;
 
-      // Calculate profit for this bill
       let billCost = 0;
       (bill.items || []).forEach((item: any) => {
         if (item.category === 'charges') return;
@@ -54,7 +56,6 @@ export default function DashboardPage() {
       const billProfit = billTotal - billCost;
       totalProfit += billProfit;
 
-      // Profit proportional to payment received
       if (billTotal > 0) {
         const paidRatio = Math.min(1, billPaid / billTotal);
         receivedProfit += billProfit * paidRatio;
