@@ -9,23 +9,35 @@ import DashboardPage from "./pages/DashboardPage";
 import BillingPage from "./pages/BillingPage";
 import BillsPage from "./pages/BillsPage";
 import ProductsPage from "./pages/ProductsPage";
+import LowStockPage from "./pages/LowStockPage";
 import AppLayout from "./components/AppLayout";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
-function ProtectedRoute({ children }: { children: React.ReactNode }) {
+function AppRoutes() {
   const { user, loading } = useAuth();
-  if (loading) return <div className="min-h-screen flex items-center justify-center text-muted-foreground">Loading...</div>;
-  if (!user) return <Navigate to="/login" replace />;
-  return <AppLayout>{children}</AppLayout>;
-}
 
-function AuthRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth();
-  if (loading) return <div className="min-h-screen flex items-center justify-center text-muted-foreground">Loading...</div>;
-  if (user) return <Navigate to="/" replace />;
-  return <>{children}</>;
+  if (loading) {
+    return <div className="min-h-screen flex items-center justify-center"><p className="text-muted-foreground">Loading...</p></div>;
+  }
+
+  if (!user) {
+    return <Routes><Route path="*" element={<LoginPage />} /></Routes>;
+  }
+
+  return (
+    <AppLayout>
+      <Routes>
+        <Route path="/" element={<DashboardPage />} />
+        <Route path="/billing" element={<BillingPage />} />
+        <Route path="/bills" element={<BillsPage />} />
+        <Route path="/products" element={<ProductsPage />} />
+        <Route path="/low-stock" element={<LowStockPage />} />
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </AppLayout>
+  );
 }
 
 const App = () => (
@@ -35,14 +47,7 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
-          <Routes>
-            <Route path="/login" element={<AuthRoute><LoginPage /></AuthRoute>} />
-            <Route path="/" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
-            <Route path="/billing" element={<ProtectedRoute><BillingPage /></ProtectedRoute>} />
-            <Route path="/bills" element={<ProtectedRoute><BillsPage /></ProtectedRoute>} />
-            <Route path="/products" element={<ProtectedRoute><ProductsPage /></ProtectedRoute>} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+          <AppRoutes />
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>

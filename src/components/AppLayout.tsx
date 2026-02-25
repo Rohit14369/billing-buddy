@@ -1,74 +1,100 @@
-import { Link, useLocation, useNavigate } from "react-router-dom";
-import { useAuth } from "@/contexts/AuthContext";
-import { FileText, Package, LayoutDashboard, LogOut, Plus } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { useState } from 'react';
+import { Link, useLocation } from 'react-router-dom';
+import { LayoutDashboard, Package, ShoppingCart, FileText, AlertTriangle, Menu, X, LogOut } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import Footer from './Footer';
+
+const navItems = [
+  { title: 'Dashboard', path: '/', icon: LayoutDashboard },
+  { title: 'Billing', path: '/billing', icon: ShoppingCart },
+  { title: 'Bills', path: '/bills', icon: FileText },
+  { title: 'Products', path: '/products', icon: Package },
+  { title: 'Low Stock', path: '/low-stock', icon: AlertTriangle },
+];
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
-  const { user, logout } = useAuth();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
-  const navigate = useNavigate();
-
-  const navItems = [
-    { path: "/", label: "Dashboard", icon: LayoutDashboard },
-    { path: "/billing", label: "New Bill", icon: Plus },
-    { path: "/bills", label: "Bills", icon: FileText },
-    { path: "/products", label: "Products", icon: Package },
-  ];
+  const { user, logout, isAdmin } = useAuth();
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Top Nav */}
-      <header className="border-b border-border bg-primary sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-6">
-            <Link to="/" className="flex items-center gap-2">
-              <img src="/logo.jpeg" alt="Logo" className="w-8 h-8 rounded-full object-cover" />
-              <span className="font-bold text-lg text-primary-foreground">Sadik Traders</span>
-            </Link>
-            <nav className="hidden md:flex items-center gap-1">
-              {navItems.map((item) => (
-                <Link
-                  key={item.path}
-                  to={item.path}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                    location.pathname === item.path
-                      ? "bg-primary-foreground/20 text-primary-foreground"
-                      : "text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10"
-                  }`}
-                >
-                  <item.icon size={16} />
-                  {item.label}
-                </Link>
-              ))}
-            </nav>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="text-sm text-primary-foreground/80 hidden sm:block">{user?.name}</span>
-            <Button variant="ghost" size="sm" className="text-primary-foreground hover:bg-primary-foreground/10" onClick={() => { logout(); navigate("/login"); }}>
-              <LogOut size={16} />
-            </Button>
-          </div>
-        </div>
-        {/* Mobile nav */}
-        <nav className="md:hidden flex border-t border-primary-foreground/20 overflow-x-auto bg-primary">
-          {navItems.map((item) => (
-            <Link
-              key={item.path}
-              to={item.path}
-              className={`flex-1 flex items-center justify-center gap-1 px-2 py-2.5 text-xs font-medium whitespace-nowrap ${
-                location.pathname === item.path
-                  ? "text-primary-foreground border-b-2 border-primary-foreground"
-                  : "text-primary-foreground/60"
-              }`}
-            >
-              <item.icon size={14} />
-              {item.label}
-            </Link>
-          ))}
-        </nav>
-      </header>
+    <div className="min-h-screen flex bg-background">
+      {sidebarOpen && (
+        <div className="fixed inset-0 bg-foreground/30 backdrop-blur-sm z-40 lg:hidden" onClick={() => setSidebarOpen(false)} />
+      )}
 
-      <main className="max-w-7xl mx-auto px-4 py-6">{children}</main>
+      <aside className={`fixed lg:sticky top-0 left-0 h-screen z-50 w-64 gradient-primary text-primary-foreground flex flex-col transition-transform duration-300 ease-out ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
+        <div className="p-4 flex items-center gap-3 border-b border-sidebar-border">
+          <img src="/logo.jpeg" alt="Sadik Traders" className="w-12 h-12 rounded-full object-cover ring-2 ring-accent/50" />
+          <div className="min-w-0">
+            <h1 className="text-lg font-bold truncate" style={{ fontFamily: 'var(--font-display)' }}>Sadik Traders</h1>
+            <p className="text-xs opacity-80">Since 1989</p>
+          </div>
+          <button onClick={() => setSidebarOpen(false)} className="lg:hidden ml-auto p-1 hover:bg-sidebar-accent rounded-lg transition-colors">
+            <X size={20} />
+          </button>
+        </div>
+
+        <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
+          {navItems.map((item) => {
+            const isActive = location.pathname === item.path;
+            return (
+              <Link
+                key={item.path}
+                to={item.path}
+                onClick={() => setSidebarOpen(false)}
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 group cursor-pointer ${
+                  isActive
+                    ? 'bg-sidebar-accent text-sidebar-accent-foreground shadow-md'
+                    : 'text-primary-foreground/80 hover:bg-sidebar-accent/50 hover:text-primary-foreground'
+                }`}
+              >
+                <item.icon size={18} className={`transition-transform duration-200 group-hover:scale-110 ${isActive ? 'text-accent' : ''}`} />
+                <span>{item.title}</span>
+                {isActive && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-accent" />}
+              </Link>
+            );
+          })}
+        </nav>
+
+        {/* User info & Logout */}
+        <div className="p-3 border-t border-sidebar-border">
+          <div className="flex items-center gap-2 px-2 mb-2">
+            <div className="w-8 h-8 rounded-full bg-accent/30 flex items-center justify-center text-xs font-bold">
+              {user?.name?.charAt(0)?.toUpperCase() || 'U'}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-medium truncate">{user?.name}</p>
+              <p className="text-[10px] opacity-60">{isAdmin ? 'Admin' : 'User'}</p>
+            </div>
+          </div>
+          <button onClick={logout} className="w-full flex items-center gap-2 px-3 py-2 text-xs rounded-lg hover:bg-destructive/20 text-primary-foreground/80 hover:text-primary-foreground transition-all">
+            <LogOut size={14} /> Logout
+          </button>
+        </div>
+      </aside>
+
+      <div className="flex-1 flex flex-col min-h-screen min-w-0">
+        <header className="sticky top-0 z-30 bg-background/80 backdrop-blur-md border-b border-border px-4 py-3 flex items-center gap-3">
+          <button onClick={() => setSidebarOpen(true)} className="lg:hidden p-2 hover:bg-muted rounded-lg transition-colors">
+            <Menu size={20} />
+          </button>
+          <h2 className="text-lg font-semibold text-foreground" style={{ fontFamily: 'var(--font-display)' }}>
+            {navItems.find(i => i.path === location.pathname)?.title || 'Sadik Traders'}
+          </h2>
+          <div className="ml-auto flex items-center gap-2">
+            <span className={`text-xs px-2 py-1 rounded-full ${isAdmin ? 'bg-primary/10 text-primary font-medium' : 'bg-accent/10 text-accent font-medium'}`}>
+              {isAdmin ? '🔑 Admin' : '👤 User'}
+            </span>
+          </div>
+        </header>
+
+        <main className="flex-1 p-4 md:p-6 lg:p-8">
+          {children}
+        </main>
+
+        <Footer />
+      </div>
     </div>
   );
 }
