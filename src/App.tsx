@@ -48,7 +48,7 @@ function AppRoutes() {
     );
   }
 
-  // Admin: full access
+  // Admin: full access (no attendance)
   return (
     <AppLayout>
       <Routes>
@@ -58,7 +58,6 @@ function AppRoutes() {
         <Route path="/pending" element={<PendingPage />} />
         <Route path="/products" element={<ProductsPage />} />
         <Route path="/low-stock" element={<LowStockPage />} />
-        <Route path="/attendance" element={<AttendancePage />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </AppLayout>

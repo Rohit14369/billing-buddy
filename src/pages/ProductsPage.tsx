@@ -16,14 +16,13 @@ interface Product {
   normalPrice: number;
   retailerPrice: number;
   stock: number;
-  stockKg: number;
   stockGm: number;
   category: string;
   code: string;
   image: string;
 }
 
-const emptyForm = { name: "", category: "", code: "", image: "", normalPrice: "", retailerPrice: "", buyingPrice: "", stock: "" };
+const emptyForm = { name: "", category: "", code: "", image: "", normalPrice: "", retailerPrice: "", buyingPrice: "", stock: "", stockGm: "" };
 
 export default function ProductsPage() {
   const { toast } = useToast();
@@ -59,6 +58,7 @@ export default function ProductsPage() {
       retailerPrice: Number(form.retailerPrice),
       buyingPrice: Number(form.buyingPrice),
       stock: Number(form.stock),
+      stockGm: Number(form.stockGm),
     };
     try {
       if (editing) {
@@ -82,7 +82,7 @@ export default function ProductsPage() {
       name: p.name, category: p.category || "", code: p.code || "",
       image: p.image || "", normalPrice: String(p.normalPrice || ""),
       retailerPrice: String(p.retailerPrice || ""), buyingPrice: String(p.buyingPrice || ""),
-      stock: String(p.stock || ""),
+      stock: String(p.stock || ""), stockGm: String(p.stockGm || ""),
     });
     setEditing(p._id);
     setDialogOpen(true);
@@ -103,6 +103,17 @@ export default function ProductsPage() {
     p.name.toLowerCase().includes(search.toLowerCase()) ||
     (p.code || "").toLowerCase().includes(search.toLowerCase())
   );
+
+  const formatStock = (p: Product) => {
+    const kg = p.stock || 0;
+    const gm = p.stockGm || 0;
+    if (kg > 0 && gm > 0) return `${kg} KG ${gm} Gm`;
+    if (kg > 0) return `${kg} KG`;
+    if (gm > 0) return `${gm} Gm`;
+    return "0";
+  };
+
+  const getTotalKg = (p: Product) => (p.stock || 0) + ((p.stockGm || 0) / 1000);
 
   return (
     <div className="space-y-6">
@@ -127,8 +138,18 @@ export default function ProductsPage() {
                   <Input type="number" value={form.buyingPrice} onChange={(e) => setForm({ ...form, buyingPrice: e.target.value })} className="input-focus" />
                 </div>
                 <div>
+                  <Label>Category</Label>
+                  <Input value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} placeholder="e.g. Dry Fruits" className="input-focus" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
                   <Label>Stock (KG)</Label>
                   <Input type="number" value={form.stock} onChange={(e) => setForm({ ...form, stock: e.target.value })} className="input-focus" step="0.01" />
+                </div>
+                <div>
+                  <Label>Stock (Gram)</Label>
+                  <Input type="number" value={form.stockGm} onChange={(e) => setForm({ ...form, stockGm: e.target.value })} className="input-focus" step="1" />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
@@ -139,16 +160,6 @@ export default function ProductsPage() {
                 <div>
                   <Label>Retailer Price</Label>
                   <Input type="number" value={form.retailerPrice} onChange={(e) => setForm({ ...form, retailerPrice: e.target.value })} className="input-focus" />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label>Category</Label>
-                  <Input value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} placeholder="e.g. Dry Fruits" className="input-focus" />
-                </div>
-                <div>
-                  <Label>Code</Label>
-                  <Input value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} placeholder="e.g. KJ001" className="input-focus" />
                 </div>
               </div>
               <Button type="submit" className="w-full gradient-primary text-primary-foreground hover-glow">
@@ -179,7 +190,7 @@ export default function ProductsPage() {
                 <tr className="gradient-primary text-primary-foreground">
                   <th className="px-4 py-3 text-left font-semibold">Product Name</th>
                   <th className="px-4 py-3 text-right font-semibold">Buying Price</th>
-                  <th className="px-4 py-3 text-right font-semibold">Stock (KG)</th>
+                  <th className="px-4 py-3 text-right font-semibold">Stock</th>
                   <th className="px-4 py-3 text-center font-semibold w-24">Actions</th>
                 </tr>
               </thead>
@@ -192,8 +203,8 @@ export default function ProductsPage() {
                     </td>
                     <td className="px-4 py-3 text-right font-mono">₹{p.buyingPrice?.toFixed(2) || "0.00"}</td>
                     <td className="px-4 py-3 text-right font-mono">
-                      <span className={p.stock <= 50 ? "badge-danger" : "badge-success"}>
-                        {p.stock?.toFixed(2) || "0.00"}
+                      <span className={getTotalKg(p) <= 50 ? "badge-danger" : "badge-success"}>
+                        {formatStock(p)}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-center">

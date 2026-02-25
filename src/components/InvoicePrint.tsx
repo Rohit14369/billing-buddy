@@ -50,25 +50,31 @@ export default function InvoicePrint({ bill }: Props) {
           </tr>
         </thead>
         <tbody>
-          {bill.items.map((item, idx) => (
-            <tr key={item.id}>
-              <td className="border border-black p-1 text-center">{idx + 1}</td>
-              <td className="border border-black p-1">
-                <div>{item.productName}</div>
-                {(item.lessWeightKg > 0 || item.lessWeightGm > 0) && (
-                  <div className="text-[10px]">
-                    {item.grossWeightKg > 0 || item.grossWeightGm > 0 ? `${(item.grossWeightKg + item.grossWeightGm/1000).toFixed(1)}` : ''}-{(item.lessWeightKg + item.lessWeightGm/1000).toFixed(1)}
-                  </div>
-                )}
-              </td>
-              <td className="border border-black p-1 text-center">{item.quantity}</td>
-              <td className="border border-black p-1 text-center">{item.netWeight.toFixed(2)}</td>
-              <td className="border border-black p-1 text-center">{item.unit}.</td>
-              <td className="border border-black p-1 text-center">{item.rate.toFixed(2)}</td>
-              <td className="border border-black p-1 text-right">{item.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
-            </tr>
-          ))}
-          {/* Empty rows */}
+          {bill.items.map((item, idx) => {
+            const grossTotal = (item.grossWeightKg || 0) + (item.grossWeightGm || 0) / 1000;
+            const lessTotal = (item.lessWeightKg || 0) + (item.lessWeightGm || 0) / 1000;
+            return (
+              <tr key={item.id}>
+                <td className="border border-black p-1 text-center">{idx + 1}</td>
+                <td className="border border-black p-1">
+                  <div className="font-semibold">{item.productName}</div>
+                  {lessTotal > 0 && (
+                    <div className="text-[11px]">
+                      {grossTotal.toFixed(1)}-{lessTotal.toFixed(1)}
+                    </div>
+                  )}
+                  {lessTotal > 0 && (
+                    <div className="text-[10px]">Packing Pota</div>
+                  )}
+                </td>
+                <td className="border border-black p-1 text-center">{item.quantity}</td>
+                <td className="border border-black p-1 text-center">{item.netWeight.toFixed(2)}</td>
+                <td className="border border-black p-1 text-center">{item.unit}.</td>
+                <td className="border border-black p-1 text-center">{item.rate.toFixed(2)}</td>
+                <td className="border border-black p-1 text-right">{item.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+              </tr>
+            );
+          })}
           {Array.from({ length: Math.max(0, 8 - bill.items.length) }).map((_, i) => (
             <tr key={`empty-${i}`}>
               <td className="border border-black p-1">&nbsp;</td>
