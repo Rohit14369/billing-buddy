@@ -4,95 +4,135 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { LogIn, UserPlus, Eye, EyeOff } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
 
 export default function LoginPage() {
   const { login, register } = useAuth();
-  const { toast } = useToast();
-  const [isLogin, setIsLogin] = useState(true);
+  const [isRegister, setIsRegister] = useState(false);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [showPass, setShowPass] = useState(false);
+  const [error, setError] = useState("");
+  const [authLoading, setAuthLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
+    if (authLoading) return;
+
+    if (!email || !password) {
+      setError("Email and password required");
+      return;
+    }
+    if (isRegister && !name) {
+      setError("All fields are required");
+      return;
+    }
+
+    setAuthLoading(true);
+    setError("");
+
     try {
-      if (isLogin) {
-        await login(email, password);
-      } else {
+      if (isRegister) {
         await register(name, email, password);
+      } else {
+        await login(email, password);
       }
-      toast({ title: "Success", description: isLogin ? "Logged in!" : "Registered!" });
     } catch (err: any) {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
+      setError(err.message || "Authentication failed");
     } finally {
-      setLoading(false);
+      setAuthLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <div className="w-full max-w-sm space-y-6 animate-fade-in">
-        <div className="text-center space-y-2">
-          <img
-            src="/logo.jpeg"
-            alt="Sadik Traders Logo"
-            className="mx-auto w-24 h-24 rounded-full object-cover border-4 border-primary shadow-lg"
-          />
-          <h1 className="text-2xl font-bold text-foreground">Sadik Traders</h1>
-          <p className="text-sm text-muted-foreground">Wholesale & Retail — Dry Fruits & Spices</p>
-          <p className="text-xs text-muted-foreground italic">Since 1989</p>
+    <div className="min-h-screen flex items-center justify-center p-4 bg-background relative overflow-hidden">
+      <div className="w-full max-w-md space-y-6 relative z-10">
+        <div className="text-center space-y-3">
+          <div className="mx-auto w-24 h-24 rounded-full overflow-hidden ring-4 ring-primary/30 shadow-xl">
+            <img
+              src="/logo.jpeg"
+              alt="Sadik Traders"
+              className="w-full h-full object-cover"
+            />
+          </div>
+          <h1 className="text-3xl font-bold" style={{ fontFamily: 'var(--font-display)' }}>Sadik Traders</h1>
+          <p className="text-sm text-muted-foreground">
+            Wholesale & Retail — Dry Fruits & Spices
+          </p>
+          <p className="text-xs italic text-muted-foreground">Since 1989</p>
         </div>
 
-        <div className="bg-card rounded-lg border border-border p-6 shadow-sm">
-          <h2 className="text-lg font-semibold text-center mb-4">
-            {isLogin ? "Welcome Back" : "Create Account"}
+        <div className="p-6 space-y-5 bg-card rounded-xl shadow-lg border border-border">
+          <h2 className="text-xl font-semibold text-center" style={{ fontFamily: 'var(--font-display)' }}>
+            {isRegister ? "Create Account" : "Welcome Back"}
           </h2>
+
           <form onSubmit={handleSubmit} className="space-y-4">
-            {!isLogin && (
-              <div className="space-y-1.5">
-                <Label>Name</Label>
-                <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" required />
+            {isRegister && (
+              <div className="space-y-2">
+                <Label>Full Name</Label>
+                <Input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Your full name"
+                  className="input-focus"
+                />
               </div>
             )}
-            <div className="space-y-1.5">
+
+            <div className="space-y-2">
               <Label>Email</Label>
-              <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="your@email.com" required />
+              <Input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="your@email.com"
+                className="input-focus"
+              />
             </div>
-            <div className="space-y-1.5">
+
+            <div className="space-y-2">
               <Label>Password</Label>
               <div className="relative">
                 <Input
-                  type={showPassword ? "text" : "password"}
+                  type={showPass ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  required
-                  className="pr-10"
+                  className="pr-10 input-focus"
                 />
                 <button
                   type="button"
-                  onClick={() => setShowPassword(!showPassword)}
+                  onClick={() => setShowPass(!showPass)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
                 >
-                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
             </div>
-            <Button type="submit" className="w-full" disabled={loading}>
-              {isLogin ? <LogIn size={16} /> : <UserPlus size={16} />}
-              {loading ? "Please wait..." : isLogin ? "Login" : "Register"}
+
+            {error && (
+              <p className="text-sm text-destructive bg-destructive/10 px-3 py-2 rounded">
+                {error}
+              </p>
+            )}
+
+            <Button type="submit" disabled={authLoading} className="w-full gap-2">
+              {authLoading
+                ? "Please wait..."
+                : isRegister
+                ? (<><UserPlus size={18} /> Register</>)
+                : (<><LogIn size={18} /> Login</>)
+              }
             </Button>
           </form>
-          <div className="text-center mt-4">
+
+          <div className="text-center">
             <button
               type="button"
-              onClick={() => setIsLogin(!isLogin)}
+              onClick={() => { setIsRegister(!isRegister); setError(""); }}
               className="text-sm text-primary hover:underline"
             >
-              {isLogin ? "Don't have an account? Register" : "Already have an account? Login"}
+              {isRegister ? "Already have an account? Login" : "Don't have an account? Register"}
             </button>
           </div>
         </div>

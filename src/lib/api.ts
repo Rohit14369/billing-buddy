@@ -1,7 +1,7 @@
 const API_BASE = "https://sadik-traders-backend.vercel.app/api";
 
 function getToken(): string | null {
-  return localStorage.getItem("token");
+  return localStorage.getItem("st_token");
 }
 
 function authHeaders(): HeadersInit {

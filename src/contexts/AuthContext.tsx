@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { loginUser as apiLogin, registerUser as apiRegister, getProfile } from "@/lib/api";
+import { loginUser as apiLogin, registerUser as apiRegister } from "@/lib/api";
 
 interface User {
   _id: string;
@@ -22,39 +22,55 @@ const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(localStorage.getItem("token"));
+  const [token, setToken] = useState<string | null>(localStorage.getItem("st_token"));
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (token) {
-      getProfile()
-        .then((data) => setUser(data))
-        .catch(() => {
-          localStorage.removeItem("token");
-          setToken(null);
-        })
-        .finally(() => setLoading(false));
-    } else {
-      setLoading(false);
+    const savedToken = localStorage.getItem("st_token");
+    const savedUser = localStorage.getItem("st_user");
+    if (savedToken && savedUser) {
+      try {
+        setUser(JSON.parse(savedUser));
+        setToken(savedToken);
+      } catch {
+        localStorage.removeItem("st_token");
+        localStorage.removeItem("st_user");
+      }
     }
-  }, [token]);
+    setLoading(false);
+  }, []);
 
   const login = async (email: string, password: string) => {
     const data = await apiLogin(email, password);
-    localStorage.setItem("token", data.token);
+    const userData = {
+      _id: data.user._id,
+      name: data.user.name,
+      email: data.user.email,
+      role: data.user.role,
+    };
+    localStorage.setItem("st_token", data.token);
+    localStorage.setItem("st_user", JSON.stringify(userData));
     setToken(data.token);
-    setUser(data.user);
+    setUser(userData);
   };
 
   const register = async (name: string, email: string, password: string) => {
     const data = await apiRegister(name, email, password);
-    localStorage.setItem("token", data.token);
+    const userData = {
+      _id: data.user._id,
+      name: data.user.name,
+      email: data.user.email,
+      role: data.user.role,
+    };
+    localStorage.setItem("st_token", data.token);
+    localStorage.setItem("st_user", JSON.stringify(userData));
     setToken(data.token);
-    setUser(data.user);
+    setUser(userData);
   };
 
   const logout = () => {
-    localStorage.removeItem("token");
+    localStorage.removeItem("st_token");
+    localStorage.removeItem("st_user");
     setToken(null);
     setUser(null);
   };
