@@ -125,14 +125,19 @@ export default function BillingPage() {
 
     setSaving(true);
     try {
-      // Map to backend schema: quantity=netWeight, price=rate, total=amount
-      // Add hamali and roundedOff as separate items so they're included in subtotal
       const backendItems: any[] = items.map((i) => ({
         productName: i.productName,
         category: "general",
         price: i.rate,
         quantity: parseFloat(i.netWeight.toFixed(3)),
         total: i.amount,
+        // Extra fields - will be saved if backend schema allows
+        grossWeightKg: i.grossWeightKg,
+        grossWeightGm: i.grossWeightGm,
+        lessWeightKg: i.lessWeightKg,
+        lessWeightGm: i.lessWeightGm,
+        unit: i.unit,
+        netWeight: parseFloat(i.netWeight.toFixed(3)),
       }));
 
       if (hamali > 0) {
@@ -159,6 +164,12 @@ export default function BillingPage() {
         customerType: "normal",
         discount: 0,
         items: backendItems,
+        // Extra fields for backend
+        invoiceNo,
+        mobile,
+        date,
+        hamali: Number(hamali) || 0,
+        roundedOff: Number(roundedOff) || 0,
       };
 
       await createBill(payload);
@@ -224,7 +235,7 @@ export default function BillingPage() {
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-muted border-b border-border">
+              <tr className="bg-primary text-primary-foreground">
                 <th className="px-2 py-2 text-left font-semibold w-10">SN.</th>
                 <th className="px-2 py-2 text-left font-semibold min-w-[140px]">Goods Supplied</th>
                 <th className="px-2 py-2 text-center font-semibold w-16">Qty</th>
@@ -236,7 +247,7 @@ export default function BillingPage() {
                 <th className="px-2 py-2 text-right font-semibold w-24">Amount (₹)</th>
                 <th className="px-2 py-2 w-10"></th>
               </tr>
-              <tr className="bg-muted/50 border-b border-border text-xs text-muted-foreground">
+              <tr className="bg-primary/80 text-primary-foreground/80 text-xs">
                 <th></th>
                 <th></th>
                 <th></th>
