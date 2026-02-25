@@ -78,6 +78,7 @@ export default function BillingPage() {
   const [items, setItems] = useState<BillItem[]>([emptyItem()]);
   const [hamali, setHamali] = useState<number>(0);
   const [roundedOff, setRoundedOff] = useState<number>(0);
+  const [paidAmount, setPaidAmount] = useState<number>(0);
 
   const updateItem = (id: string, field: keyof BillItem, value: any) => {
     setItems((prev) =>
@@ -99,6 +100,8 @@ export default function BillingPage() {
 
   const subtotal = items.reduce((sum, i) => sum + i.amount, 0);
   const grandTotal = subtotal + (Number(hamali) || 0) + (Number(roundedOff) || 0);
+  const pendingAmount = Math.max(0, grandTotal - (Number(paidAmount) || 0));
+  const status = pendingAmount > 0 ? "PENDING" : "PAID";
 
   const billData: BillData = {
     partyName, date, mobile, invoiceNo, items,
@@ -148,10 +151,26 @@ export default function BillingPage() {
         invoiceNo, mobile, date,
         hamali: Number(hamali) || 0,
         roundedOff: Number(roundedOff) || 0,
+        paidAmount: Number(paidAmount) || 0,
+        pendingAmount,
+        status,
       };
 
       await createBill(payload);
-      toast({ title: "Bill Saved!", description: `Bill for ${partyName} created.` });
+
+      // Save payment record locally
+      if (paidAmount > 0) {
+        const { savePaymentRecord } = await import("@/lib/api");
+        // We don't have the bill ID yet from backend, use invoiceNo
+        savePaymentRecord({
+          billId: invoiceNo,
+          customerName: partyName,
+          amount: Number(paidAmount),
+          date: new Date().toISOString(),
+        });
+      }
+
+      toast({ title: "Bill Saved!", description: `Bill for ${partyName} created. Status: ${status}` });
       setShowPrint(true);
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
@@ -165,16 +184,29 @@ export default function BillingPage() {
     setTimeout(() => window.print(), 300);
   };
 
+  const resetForm = () => {
+    setPartyName("");
+    setDate(new Date().toISOString().split("T")[0]);
+    setMobile("");
+    setInvoiceNo("");
+    setItems([emptyItem()]);
+    setHamali(0);
+    setRoundedOff(0);
+    setPaidAmount(0);
+    setShowPrint(false);
+  };
+
   return (
     <div className="space-y-4 sm:space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <h1 className="page-header text-xl sm:text-2xl md:text-3xl">New Bill</h1>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={handlePrint} className="gap-2">
-            <Printer size={16} /> Print
+        <div className="flex gap-2 flex-wrap">
+          <Button variant="outline" size="sm" onClick={resetForm}>New</Button>
+          <Button variant="outline" size="sm" onClick={handlePrint} className="gap-1">
+            <Printer size={14} /> Print
           </Button>
-          <Button onClick={handleSave} disabled={saving} className="gradient-primary text-primary-foreground hover-glow gap-2">
-            <Save size={16} /> {saving ? "Saving..." : "Save Bill"}
+          <Button size="sm" onClick={handleSave} disabled={saving} className="gradient-primary text-primary-foreground hover-glow gap-1">
+            <Save size={14} /> {saving ? "Saving..." : "Save"}
           </Button>
         </div>
       </div>
@@ -239,7 +271,14 @@ export default function BillingPage() {
                 <tr key={item.id} className="border-b border-border table-row-hover">
                   <td className="px-2 py-1.5 text-center text-muted-foreground">{idx + 1}</td>
                   <td className="px-1 py-1">
-                    <Input value={item.productName} onChange={(e) => updateItem(item.id, "productName", e.target.value)} placeholder="Product name" className="h-8 text-sm border-0 bg-transparent focus-visible:ring-1" />
+                    <div>
+                      <Input value={item.productName} onChange={(e) => updateItem(item.id, "productName", e.target.value)} placeholder="Product name" className="h-8 text-sm border-0 bg-transparent focus-visible:ring-1" />
+                      {(item.lessWeightKg > 0 || item.lessWeightGm > 0) && (
+                        <span className="text-[10px] text-muted-foreground ml-1">
+                          Less: {item.lessWeightKg > 0 ? `${item.lessWeightKg}kg` : ''}{item.lessWeightGm > 0 ? ` ${item.lessWeightGm}gm` : ''}
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-1 py-1">
                     <Input type="number" value={item.quantity || ""} onChange={(e) => updateItem(item.id, "quantity", Number(e.target.value))} className="h-8 text-sm text-center border-0 bg-transparent focus-visible:ring-1" min={1} />
@@ -284,9 +323,9 @@ export default function BillingPage() {
         </div>
       </div>
 
-      {/* Totals */}
+      {/* Totals & Payment */}
       <div className="glass-card p-4 animate-slide-up" style={{ animationDelay: '200ms' }}>
-        <div className="max-w-xs ml-auto space-y-2">
+        <div className="max-w-sm ml-auto space-y-2">
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">Subtotal:</span>
             <span className="font-mono font-medium">₹ {subtotal.toFixed(2)}</span>
@@ -302,6 +341,24 @@ export default function BillingPage() {
           <div className="border-t border-border pt-2 flex justify-between text-base font-bold">
             <span>Grand Total:</span>
             <span className="font-mono">₹ {grandTotal.toFixed(2)}</span>
+          </div>
+          <div className="border-t border-border pt-2 space-y-2">
+            <div className="flex items-center justify-between gap-3">
+              <Label className="text-sm font-medium shrink-0">Paid Amount:</Label>
+              <Input type="number" value={paidAmount || ""} onChange={(e) => setPaidAmount(Number(e.target.value))} className="h-8 w-28 text-right text-sm input-focus" step="0.01" />
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Pending:</span>
+              <span className={`font-mono font-medium ${pendingAmount > 0 ? 'text-destructive' : 'text-success'}`}>
+                ₹ {pendingAmount.toFixed(2)}
+              </span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Status:</span>
+              <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${status === 'PAID' ? 'badge-success' : 'badge-danger'}`}>
+                {status}
+              </span>
+            </div>
           </div>
         </div>
       </div>

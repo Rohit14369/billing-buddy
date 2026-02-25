@@ -12,7 +12,7 @@ export default function InvoicePrint({ bill }: Props) {
   };
 
   return (
-    <div className="bg-white text-black p-8 max-w-[210mm] mx-auto font-serif text-[13px] leading-tight">
+    <div className="bg-white text-black p-6 max-w-[210mm] mx-auto font-serif text-[13px] leading-tight">
       {/* Header */}
       <table className="w-full border-collapse border border-black mb-0">
         <tbody>
@@ -43,25 +43,32 @@ export default function InvoicePrint({ bill }: Props) {
             <th className="border border-black p-1 text-left w-8">SN.</th>
             <th className="border border-black p-1 text-left">Goods supplied</th>
             <th className="border border-black p-1 text-center w-12">Qty.</th>
-            <th className="border border-black p-1 text-center w-16">Weight</th>
+            <th className="border border-black p-1 text-center w-16">Weight.</th>
             <th className="border border-black p-1 text-center w-12">Unit</th>
             <th className="border border-black p-1 text-center w-16">Price</th>
-            <th className="border border-black p-1 text-right w-20">Amount (₹)</th>
+            <th className="border border-black p-1 text-right w-24">Amount (₹)</th>
           </tr>
         </thead>
         <tbody>
           {bill.items.map((item, idx) => (
             <tr key={item.id}>
               <td className="border border-black p-1 text-center">{idx + 1}</td>
-              <td className="border border-black p-1">{item.productName}</td>
+              <td className="border border-black p-1">
+                <div>{item.productName}</div>
+                {(item.lessWeightKg > 0 || item.lessWeightGm > 0) && (
+                  <div className="text-[10px]">
+                    {item.grossWeightKg > 0 || item.grossWeightGm > 0 ? `${(item.grossWeightKg + item.grossWeightGm/1000).toFixed(1)}` : ''}-{(item.lessWeightKg + item.lessWeightGm/1000).toFixed(1)}
+                  </div>
+                )}
+              </td>
               <td className="border border-black p-1 text-center">{item.quantity}</td>
               <td className="border border-black p-1 text-center">{item.netWeight.toFixed(2)}</td>
               <td className="border border-black p-1 text-center">{item.unit}.</td>
               <td className="border border-black p-1 text-center">{item.rate.toFixed(2)}</td>
-              <td className="border border-black p-1 text-right">{item.amount.toFixed(2)}</td>
+              <td className="border border-black p-1 text-right">{item.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
             </tr>
           ))}
-          {/* Empty rows to match invoice look */}
+          {/* Empty rows */}
           {Array.from({ length: Math.max(0, 8 - bill.items.length) }).map((_, i) => (
             <tr key={`empty-${i}`}>
               <td className="border border-black p-1">&nbsp;</td>
@@ -94,7 +101,7 @@ export default function InvoicePrint({ bill }: Props) {
           <tr className="font-bold">
             <td className="border border-black p-2" colSpan={2}>Party</td>
             <td className="border border-black p-2 text-center" colSpan={3}>Grand Total ₹</td>
-            <td className="border border-black p-2 text-right" colSpan={2}>{bill.grandTotal.toFixed(2)}</td>
+            <td className="border border-black p-2 text-right" colSpan={2}>{bill.grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
           </tr>
         </tbody>
       </table>

@@ -16,6 +16,8 @@ interface Product {
   normalPrice: number;
   retailerPrice: number;
   stock: number;
+  stockKg: number;
+  stockGm: number;
   category: string;
   code: string;
   image: string;
@@ -117,7 +119,27 @@ export default function ProductsPage() {
             <form onSubmit={submit} className="space-y-3">
               <div>
                 <Label>Product Name</Label>
-                <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Product name" className="input-focus" />
+                <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Kaju, Almond" className="input-focus" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>Buying Price (per KG)</Label>
+                  <Input type="number" value={form.buyingPrice} onChange={(e) => setForm({ ...form, buyingPrice: e.target.value })} className="input-focus" />
+                </div>
+                <div>
+                  <Label>Stock (KG)</Label>
+                  <Input type="number" value={form.stock} onChange={(e) => setForm({ ...form, stock: e.target.value })} className="input-focus" step="0.01" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>Normal Price</Label>
+                  <Input type="number" value={form.normalPrice} onChange={(e) => setForm({ ...form, normalPrice: e.target.value })} className="input-focus" />
+                </div>
+                <div>
+                  <Label>Retailer Price</Label>
+                  <Input type="number" value={form.retailerPrice} onChange={(e) => setForm({ ...form, retailerPrice: e.target.value })} className="input-focus" />
+                </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -126,31 +148,7 @@ export default function ProductsPage() {
                 </div>
                 <div>
                   <Label>Code</Label>
-                  <Input value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} placeholder="e.g. DF001" className="input-focus" />
-                </div>
-              </div>
-              <div>
-                <Label>Image URL</Label>
-                <Input value={form.image} onChange={(e) => setForm({ ...form, image: e.target.value })} placeholder="https://..." className="input-focus" />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label>Buying Price</Label>
-                  <Input type="number" value={form.buyingPrice} onChange={(e) => setForm({ ...form, buyingPrice: e.target.value })} className="input-focus" />
-                </div>
-                <div>
-                  <Label>Normal Price</Label>
-                  <Input type="number" value={form.normalPrice} onChange={(e) => setForm({ ...form, normalPrice: e.target.value })} className="input-focus" />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label>Retailer Price</Label>
-                  <Input type="number" value={form.retailerPrice} onChange={(e) => setForm({ ...form, retailerPrice: e.target.value })} className="input-focus" />
-                </div>
-                <div>
-                  <Label>Stock (KG)</Label>
-                  <Input type="number" value={form.stock} onChange={(e) => setForm({ ...form, stock: e.target.value })} className="input-focus" />
+                  <Input value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} placeholder="e.g. KJ001" className="input-focus" />
                 </div>
               </div>
               <Button type="submit" className="w-full gradient-primary text-primary-foreground hover-glow">
@@ -161,7 +159,6 @@ export default function ProductsPage() {
         </Dialog>
       </div>
 
-      {/* Search */}
       <div className="relative max-w-md">
         <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
         <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search products..." className="pl-10 input-focus" />
@@ -181,10 +178,8 @@ export default function ProductsPage() {
               <thead>
                 <tr className="gradient-primary text-primary-foreground">
                   <th className="px-4 py-3 text-left font-semibold">Product Name</th>
-                  <th className="px-4 py-3 text-right font-semibold">Buying</th>
-                  <th className="px-4 py-3 text-right font-semibold">Normal</th>
-                  <th className="px-4 py-3 text-right font-semibold">Retailer</th>
-                  <th className="px-4 py-3 text-right font-semibold">Stock</th>
+                  <th className="px-4 py-3 text-right font-semibold">Buying Price</th>
+                  <th className="px-4 py-3 text-right font-semibold">Stock (KG)</th>
                   <th className="px-4 py-3 text-center font-semibold w-24">Actions</th>
                 </tr>
               </thead>
@@ -192,17 +187,10 @@ export default function ProductsPage() {
                 {filtered.map((p) => (
                   <tr key={p._id} className="border-b border-border table-row-hover">
                     <td className="px-4 py-3">
-                      <div className="flex items-center gap-3">
-                        {p.image && <img src={p.image} alt={p.name} className="w-8 h-8 rounded object-cover" />}
-                        <div>
-                          <p className="font-medium">{p.name}</p>
-                          {p.category && <p className="text-xs text-muted-foreground">{p.category}</p>}
-                        </div>
-                      </div>
+                      <p className="font-medium">{p.name}</p>
+                      {p.category && <p className="text-xs text-muted-foreground">{p.category}</p>}
                     </td>
                     <td className="px-4 py-3 text-right font-mono">₹{p.buyingPrice?.toFixed(2) || "0.00"}</td>
-                    <td className="px-4 py-3 text-right font-mono">₹{p.normalPrice?.toFixed(2) || "0.00"}</td>
-                    <td className="px-4 py-3 text-right font-mono">₹{p.retailerPrice?.toFixed(2) || "0.00"}</td>
                     <td className="px-4 py-3 text-right font-mono">
                       <span className={p.stock <= 50 ? "badge-danger" : "badge-success"}>
                         {p.stock?.toFixed(2) || "0.00"}

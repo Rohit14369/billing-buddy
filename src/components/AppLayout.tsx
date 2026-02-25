@@ -1,21 +1,29 @@
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Package, ShoppingCart, FileText, AlertTriangle, Menu, X, LogOut } from 'lucide-react';
+import { LayoutDashboard, Package, ShoppingCart, FileText, AlertTriangle, Menu, X, LogOut, Clock, IndianRupee } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import Footer from './Footer';
 
-const navItems = [
+const adminNavItems = [
   { title: 'Dashboard', path: '/', icon: LayoutDashboard },
   { title: 'Billing', path: '/billing', icon: ShoppingCart },
   { title: 'Bills', path: '/bills', icon: FileText },
+  { title: 'Pending', path: '/pending', icon: IndianRupee },
   { title: 'Products', path: '/products', icon: Package },
   { title: 'Low Stock', path: '/low-stock', icon: AlertTriangle },
+  { title: 'Attendance', path: '/attendance', icon: Clock },
+];
+
+const userNavItems = [
+  { title: 'Attendance', path: '/attendance', icon: Clock },
 ];
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
   const { user, logout, isAdmin } = useAuth();
+
+  const navItems = isAdmin ? adminNavItems : userNavItems;
 
   return (
     <div className="min-h-screen flex bg-background">
@@ -57,7 +65,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           })}
         </nav>
 
-        {/* User info & Logout */}
         <div className="p-3 border-t border-sidebar-border">
           <div className="flex items-center gap-2 px-2 mb-2">
             <div className="w-8 h-8 rounded-full bg-accent/30 flex items-center justify-center text-xs font-bold">
