@@ -1,4 +1,4 @@
-const API_BASE = "https://sadik-traders-backend-6444.vercel.app/api";
+const API_BASE = "https://sadik-traders-backend.vercel.app/api";
 
 function getToken(): string | null {
   return localStorage.getItem("token");

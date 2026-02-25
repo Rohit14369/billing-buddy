@@ -37,11 +37,14 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <div className="w-full max-w-sm space-y-6 animate-fade-in">
         <div className="text-center space-y-2">
-          <div className="mx-auto w-16 h-16 rounded-full bg-primary flex items-center justify-center">
-            <span className="text-primary-foreground text-2xl font-bold">S</span>
-          </div>
+          <img
+            src="/logo.jpeg"
+            alt="Sadik Traders Logo"
+            className="mx-auto w-24 h-24 rounded-full object-cover border-4 border-primary shadow-lg"
+          />
           <h1 className="text-2xl font-bold text-foreground">Sadik Traders</h1>
           <p className="text-sm text-muted-foreground">Wholesale & Retail — Dry Fruits & Spices</p>
+          <p className="text-xs text-muted-foreground italic">Since 1989</p>
         </div>
 
         <div className="bg-card rounded-lg border border-border p-6 shadow-sm">
