@@ -53,7 +53,7 @@ function calcAmount(netWeight: number, rate: number): number {
 
 function calcQuantity(netWeight: number, unit: "Kgs" | "Gms"): number {
   const quantity = unit === "Kgs" ? netWeight : netWeight * 1000;
-  return parseFloat(quantity.toFixed(2)); // Round to 2 decimal places
+  return parseFloat(quantity.toFixed(2));
 }
 
 const emptyItem = (): BillItem => ({
@@ -400,7 +400,7 @@ export default function BillingPage() {
                   <td className="px-1 py-1">
                     <Input
                       type="number"
-                      value={item.quantity.toFixed(2)} // Display rounded quantity
+                      value={item.quantity.toFixed(2)}
                       readOnly
                       className="h-8 text-sm text-center border-0 bg-transparent focus-visible:ring-1"
                     />
