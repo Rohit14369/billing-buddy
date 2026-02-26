@@ -15,13 +15,24 @@ interface Product {
   buyingPrice: number;
   normalPrice: number;
   retailerPrice: number;
-  stock: number;
+  stockKg: number;
+  stockGm: number;
   category: string;
   code: string;
   image: string;
 }
 
-const emptyForm = { name: "", category: "", code: "", image: "", normalPrice: "", retailerPrice: "", buyingPrice: "", stockKg: "", stockGm: "" };
+const emptyForm = {
+  name: "",
+  category: "",
+  code: "",
+  image: "",
+  normalPrice: "",
+  retailerPrice: "",
+  buyingPrice: "",
+  stockKg: "",
+  stockGm: "",
+};
 
 export default function ProductsPage() {
   const { toast } = useToast();
@@ -51,21 +62,22 @@ export default function ProductsPage() {
       toast({ title: "Error", description: "Name is required", variant: "destructive" });
       return;
     }
-    // Convert KG + Gm to total grams for storage
-    const kgVal = Number(form.stockKg) || 0;
-    const gmVal = Number(form.stockGm) || 0;
-    const totalStockGrams = (kgVal * 1000) + gmVal;
+
+    // Generate a random code if not provided
+    const productCode = form.code.trim() || `PROD-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
 
     const cleanForm = {
       name: form.name,
       category: form.category,
-      code: form.code,
+      code: productCode, // Use generated code if empty
       image: form.image,
       normalPrice: Number(form.normalPrice),
       retailerPrice: Number(form.retailerPrice),
       buyingPrice: Number(form.buyingPrice),
-      stock: totalStockGrams, // stored in grams
+      stockKg: Number(form.stockKg) || 0,
+      stockGm: Number(form.stockGm) || 0,
     };
+
     try {
       if (editing) {
         await updateProduct(editing, cleanForm);
@@ -84,15 +96,16 @@ export default function ProductsPage() {
   };
 
   const handleEdit = (p: Product) => {
-    // Convert grams back to KG and Gm fields
-    const totalGrams = p.stock || 0;
-    const kg = Math.floor(totalGrams / 1000);
-    const gm = Math.round(totalGrams % 1000);
     setForm({
-      name: p.name, category: p.category || "", code: p.code || "",
-      image: p.image || "", normalPrice: String(p.normalPrice || ""),
-      retailerPrice: String(p.retailerPrice || ""), buyingPrice: String(p.buyingPrice || ""),
-      stockKg: String(kg || ""), stockGm: String(gm || ""),
+      name: p.name,
+      category: p.category || "",
+      code: p.code || "",
+      image: p.image || "",
+      normalPrice: String(p.normalPrice || ""),
+      retailerPrice: String(p.retailerPrice || ""),
+      buyingPrice: String(p.buyingPrice || ""),
+      stockKg: String(p.stockKg || ""),
+      stockGm: String(p.stockGm || ""),
     });
     setEditing(p._id);
     setDialogOpen(true);
@@ -114,17 +127,21 @@ export default function ProductsPage() {
     (p.code || "").toLowerCase().includes(search.toLowerCase())
   );
 
-  // Display stock: stored in grams
-  const formatStock = (stockGrams: number) => {
-    if (stockGrams >= 1000) {
-      return `${(stockGrams / 1000).toFixed(stockGrams % 1000 === 0 ? 0 : 1)} KG`;
+  const formatStock = (stockKg: number, stockGm: number) => {
+    if (stockKg > 0 && stockGm > 0) {
+      return `${stockKg} KG ${stockGm} Gm`;
+    } else if (stockKg > 0) {
+      return `${stockKg} KG`;
+    } else if (stockGm > 0) {
+      return `${stockGm} Gm`;
     }
-    return `${stockGrams} Gm`;
+    return "0 Gm";
   };
 
-  const getStockBadge = (stockGrams: number) => {
-    if (stockGrams === 0) return "badge-danger";
-    if (stockGrams < 1000) return "badge-danger"; // light red for < 1 KG
+  const getStockBadge = (stockKg: number, stockGm: number) => {
+    const totalGrams = (stockKg * 1000) + stockGm;
+    if (totalGrams === 0) return "badge-danger";
+    if (totalGrams < 1000) return "badge-warning";
     return "badge-success";
   };
 
@@ -209,7 +226,6 @@ export default function ProductsPage() {
               </thead>
               <tbody>
                 {filtered.map((p) => {
-                  const stockGrams = p.stock || 0;
                   return (
                     <tr key={p._id} className="border-b border-border table-row-hover">
                       <td className="px-4 py-3">
@@ -218,8 +234,8 @@ export default function ProductsPage() {
                       </td>
                       <td className="px-4 py-3 text-right font-mono">₹{p.buyingPrice?.toFixed(2) || "0.00"}</td>
                       <td className="px-4 py-3 text-right font-mono">
-                        <span className={getStockBadge(stockGrams)}>
-                          {formatStock(stockGrams)}
+                        <span className={getStockBadge(p.stockKg, p.stockGm)}>
+                          {formatStock(p.stockKg, p.stockGm)}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-center">

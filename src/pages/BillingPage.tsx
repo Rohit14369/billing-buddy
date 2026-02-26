@@ -7,6 +7,13 @@ import { createBill, getBills, getProducts, updateProduct } from "@/lib/api";
 import { Printer, Plus, Trash2, Save } from "lucide-react";
 import InvoicePrint from "@/components/InvoicePrint";
 
+interface Product {
+  _id: string;
+  name: string;
+  stock: number; // Stock in grams
+  code: string;
+}
+
 export interface BillItem {
   id: string;
   productName: string;
@@ -51,7 +58,6 @@ function calcAmount(netWeight: number, rate: number): number {
   return parseFloat((netWeight * rate).toFixed(2));
 }
 
-// Updated calcQuantity function to set quantity based on net weight
 function calcQuantity(netWeight: number, unit: "Kgs" | "Gms"): number {
   return Math.round(unit === "Kgs" ? netWeight : netWeight * 1000);
 }
@@ -75,6 +81,8 @@ export default function BillingPage() {
   const printRef = useRef<HTMLDivElement>(null);
   const [saving, setSaving] = useState(false);
   const [showPrint, setShowPrint] = useState(false);
+  const [productSearch, setProductSearch] = useState("");
+  const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
 
   const [partyName, setPartyName] = useState("");
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
@@ -84,6 +92,29 @@ export default function BillingPage() {
   const [hamali, setHamali] = useState<number>(0);
   const [roundedOff, setRoundedOff] = useState<number>(0);
   const [paidAmount, setPaidAmount] = useState<number>(0);
+
+  const fetchAndFilterProducts = async (searchTerm: string) => {
+    try {
+      const data = await getProducts();
+      const products = Array.isArray(data) ? data : [];
+      const filtered = products.filter(p =>
+        p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (p.code || "").toLowerCase().includes(searchTerm.toLowerCase())
+      );
+      setFilteredProducts(filtered);
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    }
+  };
+
+  useEffect(() => {
+    if (productSearch.trim()) {
+      const timer = setTimeout(() => fetchAndFilterProducts(productSearch), 500);
+      return () => clearTimeout(timer);
+    } else {
+      setFilteredProducts([]);
+    }
+  }, [productSearch]);
 
   useEffect(() => {
     getBills()
@@ -102,6 +133,9 @@ export default function BillingPage() {
   }, []);
 
   const updateItem = (id: string, field: keyof BillItem, value: any) => {
+    if (field === "productName") {
+      setProductSearch(value);
+    }
     setItems((prev) =>
       prev.map((item) => {
         if (item.id !== id) return item;
@@ -112,6 +146,11 @@ export default function BillingPage() {
         return updated;
       })
     );
+  };
+
+  const handleProductSelect = (product: Product, itemId: string) => {
+    updateItem(itemId, "productName", product.name);
+    setProductSearch("");
   };
 
   const addItem = () => setItems((prev) => [...prev, emptyItem()]);
@@ -144,6 +183,30 @@ export default function BillingPage() {
     }
     if (items.some((i) => !i.productName.trim())) {
       toast({ title: "Error", description: "All products must have a name", variant: "destructive" });
+      return;
+    }
+
+    // Check stock before saving
+    try {
+      const allProducts = await getProducts();
+      const productsList = Array.isArray(allProducts) ? allProducts : [];
+
+      for (const item of items) {
+        const product = productsList.find(
+          (p: any) => p.name?.toLowerCase() === item.productName.toLowerCase()
+        );
+        if (!product) {
+          toast({ title: "Error", description: `Product "${item.productName}" not found`, variant: "destructive" });
+          return;
+        }
+        const requiredGrams = item.netWeight * 1000;
+        if ((product.stock || 0) < requiredGrams) {
+          toast({ title: "Error", description: `Not enough stock for "${item.productName}"`, variant: "destructive" });
+          return;
+        }
+      }
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
       return;
     }
 
@@ -382,17 +445,30 @@ export default function BillingPage() {
                 <tr key={item.id} className="border-b border-border table-row-hover">
                   <td className="px-2 py-1.5 text-center text-muted-foreground">{idx + 1}</td>
                   <td className="px-1 py-1">
-                    <div>
+                    <div className="relative">
                       <Input
                         value={item.productName}
                         onChange={(e) => updateItem(item.id, "productName", e.target.value)}
                         placeholder="Product name"
                         className="h-8 text-sm border-0 bg-transparent focus-visible:ring-1"
                       />
+                      {productSearch && filteredProducts.length > 0 && (
+                        <div className="absolute z-10 w-full mt-1 bg-white border border-border rounded shadow-lg">
+                          {filteredProducts.map((product) => (
+                            <div
+                              key={product._id}
+                              className="p-2 cursor-pointer hover:bg-gray-100"
+                              onClick={() => handleProductSelect(product, item.id)}
+                            >
+                              {product.name} {product.code && `(${product.code})`}
+                            </div>
+                          ))}
+                        </div>
+                      )}
                       {(item.lessWeightKg > 0 || item.lessWeightGm > 0) && (
                         <span className="text-[10px] text-muted-foreground ml-1">
-                          {(item.grossWeightKg + item.grossWeightGm / 1000).toFixed(1)}-
-                          {(item.lessWeightKg + item.lessWeightGm / 1000).toFixed(1)}
+                          {(item.grossWeightKg + item.grossWeightGm/1000).toFixed(1)}-
+                          {(item.lessWeightKg + item.lessWeightGm/1000).toFixed(1)}
                         </span>
                       )}
                     </div>
