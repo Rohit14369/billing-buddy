@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { createBill, getBills } from "@/lib/api";
+import { createBill, getBills, getProducts, updateProduct } from "@/lib/api";
 import { Printer, Plus, Trash2, Save } from "lucide-react";
 import InvoicePrint from "@/components/InvoicePrint";
 
@@ -173,6 +173,25 @@ export default function BillingPage() {
 
       await createBill(payload);
 
+      // Deduct stock for each product (stock is in grams)
+      try {
+        const allProducts = await getProducts();
+        const productsList = Array.isArray(allProducts) ? allProducts : [];
+        for (const item of items) {
+          const product = productsList.find((p: any) =>
+            p.name.toLowerCase() === item.productName.toLowerCase()
+          );
+          if (product) {
+            // netWeight is in KG, convert to grams for deduction
+            const deductGrams = item.netWeight * 1000;
+            const newStock = Math.max(0, (product.stock || 0) - deductGrams);
+            await updateProduct(product._id, { stock: newStock });
+          }
+        }
+      } catch (stockErr) {
+        console.error("Stock deduction error:", stockErr);
+      }
+
       if (paidAmount > 0) {
         const { savePaymentRecord } = await import("@/lib/api");
         savePaymentRecord({
@@ -206,7 +225,6 @@ export default function BillingPage() {
     setRoundedOff(0);
     setPaidAmount(0);
     setShowPrint(false);
-    // Re-generate invoice number
     getBills().then((data) => {
       const bills = Array.isArray(data) ? data : [];
       const maxNum = bills.reduce((max: number, b: any) => {

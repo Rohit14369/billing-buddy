@@ -63,9 +63,6 @@ export default function InvoicePrint({ bill }: Props) {
                       {grossTotal.toFixed(1)}-{lessTotal.toFixed(1)}
                     </div>
                   )}
-                  {lessTotal > 0 && (
-                    <div className="text-[10px]">Packing Pota</div>
-                  )}
                 </td>
                 <td className="border border-black p-1 text-center">{item.quantity}</td>
                 <td className="border border-black p-1 text-center">{item.netWeight.toFixed(2)}</td>

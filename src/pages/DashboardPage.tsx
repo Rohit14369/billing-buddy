@@ -6,31 +6,31 @@ import { Link } from "react-router-dom";
 
 export default function DashboardPage() {
   const { user } = useAuth();
-  const [apiData, setApiData] = useState<any>(null);
   const [apiBills, setApiBills] = useState<any[]>([]);
   const [apiProducts, setApiProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     Promise.all([
-      getDashboard().then(res => {
-        if (res?.success) setApiData(res.data);
-        else setApiData(res);
-      }).catch(() => {}),
       getBills().then(res => setApiBills(Array.isArray(res) ? res : [])).catch(() => {}),
       getProducts().then(res => setApiProducts(Array.isArray(res) ? res : [])).catch(() => {}),
     ]).finally(() => setLoading(false));
   }, []);
 
-  const totalProducts = apiData?.totalProducts ?? apiProducts.length;
-  const totalStock = apiData?.totalStock ?? apiProducts.reduce((s: number, p: any) => s + (p.stock || 0) + ((p.stockGm || 0) / 1000), 0);
-  const lowStockCount = apiProducts.filter((p: any) => {
-    const totalKg = (p.stock || 0) + ((p.stockGm || 0) / 1000);
-    return totalKg <= 50;
-  }).length;
-  const totalRevenue = apiData?.totalRevenue ?? apiBills.reduce((s: number, b: any) => s + (b.total || 0), 0);
+  const totalProducts = apiProducts.length;
 
-  // Profit proportional to received payment
+  // Stock is stored in grams
+  const totalStockGrams = apiProducts.reduce((s: number, p: any) => s + (p.stock || 0), 0);
+  const totalStockDisplay = totalStockGrams >= 1000
+    ? `${(totalStockGrams / 1000).toFixed(1)} KG`
+    : `${totalStockGrams} Gm`;
+
+  // Low stock: less than 1 KG (1000 grams)
+  const lowStockCount = apiProducts.filter((p: any) => (p.stock || 0) < 1000).length;
+
+  const totalRevenue = apiBills.reduce((s: number, b: any) => s + (b.total || 0), 0);
+
+  // Proportional profit
   const profitData = (() => {
     let totalProfit = 0;
     let receivedProfit = 0;
@@ -41,7 +41,6 @@ export default function DashboardPage() {
       const billTotal = bill.total || 0;
       const billPaid = (bill.paidAmount || 0) + getTotalPaidForBill(bill._id);
       const billPending = Math.max(0, billTotal - billPaid);
-
       totalPaid += billPaid;
       totalPending += billPending;
 
@@ -55,13 +54,10 @@ export default function DashboardPage() {
       });
       const billProfit = billTotal - billCost;
       totalProfit += billProfit;
-
       if (billTotal > 0) {
-        const paidRatio = Math.min(1, billPaid / billTotal);
-        receivedProfit += billProfit * paidRatio;
+        receivedProfit += billProfit * Math.min(1, billPaid / billTotal);
       }
     });
-
     return { totalProfit, receivedProfit, totalPending, totalPaid };
   })();
 
@@ -80,7 +76,7 @@ export default function DashboardPage() {
 
   const stats = [
     { label: 'Total Products', value: totalProducts, icon: Package, color: 'text-primary' },
-    { label: 'Total Stock', value: `${totalStock.toFixed(1)} KG`, icon: TrendingUp, color: 'text-primary' },
+    { label: 'Total Stock', value: totalStockDisplay, icon: TrendingUp, color: 'text-primary' },
     { label: 'Low Stock', value: lowStockCount, icon: AlertTriangle, color: 'text-warning', link: '/low-stock' },
     { label: "Today's Bills", value: todayBillsCount, icon: ShoppingCart, color: 'text-primary' },
     { label: 'Total Revenue', value: `₹${totalRevenue.toLocaleString('en-IN')}`, icon: IndianRupee, color: 'text-primary' },

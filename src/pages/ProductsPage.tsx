@@ -16,13 +16,12 @@ interface Product {
   normalPrice: number;
   retailerPrice: number;
   stock: number;
-  stockGm: number;
   category: string;
   code: string;
   image: string;
 }
 
-const emptyForm = { name: "", category: "", code: "", image: "", normalPrice: "", retailerPrice: "", buyingPrice: "", stock: "", stockGm: "" };
+const emptyForm = { name: "", category: "", code: "", image: "", normalPrice: "", retailerPrice: "", buyingPrice: "", stockKg: "", stockGm: "" };
 
 export default function ProductsPage() {
   const { toast } = useToast();
@@ -52,13 +51,20 @@ export default function ProductsPage() {
       toast({ title: "Error", description: "Name is required", variant: "destructive" });
       return;
     }
+    // Convert KG + Gm to total grams for storage
+    const kgVal = Number(form.stockKg) || 0;
+    const gmVal = Number(form.stockGm) || 0;
+    const totalStockGrams = (kgVal * 1000) + gmVal;
+
     const cleanForm = {
-      ...form,
+      name: form.name,
+      category: form.category,
+      code: form.code,
+      image: form.image,
       normalPrice: Number(form.normalPrice),
       retailerPrice: Number(form.retailerPrice),
       buyingPrice: Number(form.buyingPrice),
-      stock: Number(form.stock),
-      stockGm: Number(form.stockGm),
+      stock: totalStockGrams, // stored in grams
     };
     try {
       if (editing) {
@@ -78,11 +84,15 @@ export default function ProductsPage() {
   };
 
   const handleEdit = (p: Product) => {
+    // Convert grams back to KG and Gm fields
+    const totalGrams = p.stock || 0;
+    const kg = Math.floor(totalGrams / 1000);
+    const gm = Math.round(totalGrams % 1000);
     setForm({
       name: p.name, category: p.category || "", code: p.code || "",
       image: p.image || "", normalPrice: String(p.normalPrice || ""),
       retailerPrice: String(p.retailerPrice || ""), buyingPrice: String(p.buyingPrice || ""),
-      stock: String(p.stock || ""), stockGm: String(p.stockGm || ""),
+      stockKg: String(kg || ""), stockGm: String(gm || ""),
     });
     setEditing(p._id);
     setDialogOpen(true);
@@ -104,16 +114,19 @@ export default function ProductsPage() {
     (p.code || "").toLowerCase().includes(search.toLowerCase())
   );
 
-  const formatStock = (p: Product) => {
-    const kg = p.stock || 0;
-    const gm = p.stockGm || 0;
-    if (kg > 0 && gm > 0) return `${kg} KG ${gm} Gm`;
-    if (kg > 0) return `${kg} KG`;
-    if (gm > 0) return `${gm} Gm`;
-    return "0";
+  // Display stock: stored in grams
+  const formatStock = (stockGrams: number) => {
+    if (stockGrams >= 1000) {
+      return `${(stockGrams / 1000).toFixed(stockGrams % 1000 === 0 ? 0 : 1)} KG`;
+    }
+    return `${stockGrams} Gm`;
   };
 
-  const getTotalKg = (p: Product) => (p.stock || 0) + ((p.stockGm || 0) / 1000);
+  const getStockBadge = (stockGrams: number) => {
+    if (stockGrams === 0) return "badge-danger";
+    if (stockGrams < 1000) return "badge-danger"; // light red for < 1 KG
+    return "badge-success";
+  };
 
   return (
     <div className="space-y-6">
@@ -145,11 +158,11 @@ export default function ProductsPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label>Stock (KG)</Label>
-                  <Input type="number" value={form.stock} onChange={(e) => setForm({ ...form, stock: e.target.value })} className="input-focus" step="0.01" />
+                  <Input type="number" value={form.stockKg} onChange={(e) => setForm({ ...form, stockKg: e.target.value })} className="input-focus" step="0.01" placeholder="e.g. 10" />
                 </div>
                 <div>
                   <Label>Stock (Gram)</Label>
-                  <Input type="number" value={form.stockGm} onChange={(e) => setForm({ ...form, stockGm: e.target.value })} className="input-focus" step="1" />
+                  <Input type="number" value={form.stockGm} onChange={(e) => setForm({ ...form, stockGm: e.target.value })} className="input-focus" step="1" placeholder="e.g. 500" />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
@@ -195,30 +208,33 @@ export default function ProductsPage() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((p) => (
-                  <tr key={p._id} className="border-b border-border table-row-hover">
-                    <td className="px-4 py-3">
-                      <p className="font-medium">{p.name}</p>
-                      {p.category && <p className="text-xs text-muted-foreground">{p.category}</p>}
-                    </td>
-                    <td className="px-4 py-3 text-right font-mono">₹{p.buyingPrice?.toFixed(2) || "0.00"}</td>
-                    <td className="px-4 py-3 text-right font-mono">
-                      <span className={getTotalKg(p) <= 50 ? "badge-danger" : "badge-success"}>
-                        {formatStock(p)}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      <div className="flex items-center justify-center gap-2">
-                        <button onClick={() => handleEdit(p)} className="text-muted-foreground hover:text-primary transition-colors">
-                          <Pencil size={14} />
-                        </button>
-                        <button onClick={() => handleDelete(p._id)} className="text-muted-foreground hover:text-destructive transition-colors">
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                {filtered.map((p) => {
+                  const stockGrams = p.stock || 0;
+                  return (
+                    <tr key={p._id} className="border-b border-border table-row-hover">
+                      <td className="px-4 py-3">
+                        <p className="font-medium">{p.name}</p>
+                        {p.category && <p className="text-xs text-muted-foreground">{p.category}</p>}
+                      </td>
+                      <td className="px-4 py-3 text-right font-mono">₹{p.buyingPrice?.toFixed(2) || "0.00"}</td>
+                      <td className="px-4 py-3 text-right font-mono">
+                        <span className={getStockBadge(stockGrams)}>
+                          {formatStock(stockGrams)}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <div className="flex items-center justify-center gap-2">
+                          <button onClick={() => handleEdit(p)} className="text-muted-foreground hover:text-primary transition-colors">
+                            <Pencil size={14} />
+                          </button>
+                          <button onClick={() => handleDelete(p._id)} className="text-muted-foreground hover:text-destructive transition-colors">
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
