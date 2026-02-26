@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { getLowStock, getProducts, updateProduct } from "@/lib/api";
+import { getProducts, updateProduct } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,41 +7,33 @@ import { Label } from "@/components/ui/label";
 import { AlertTriangle, Package } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
-interface LowStockProduct {
+interface Product {
   _id: string;
   name: string;
   category: string;
-  stock: number;
-  normalPrice: number;
+  stock: number; // in grams
+  buyingPrice: number;
   image?: string;
 }
 
 export default function LowStockPage() {
   const { toast } = useToast();
-  const [lowStock, setLowStock] = useState<LowStockProduct[]>([]);
+  const [lowStock, setLowStock] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [restockOpen, setRestockOpen] = useState(false);
   const [restockId, setRestockId] = useState("");
-  const [restockQty, setRestockQty] = useState(0);
+  const [restockKg, setRestockKg] = useState(0);
+  const [restockGm, setRestockGm] = useState(0);
 
   const fetchLowStock = async () => {
     setLoading(true);
     try {
-      const res = await getLowStock();
-      if (res?.success && res.data?.length > 0) {
-        setLowStock(res.data);
-      } else {
-        // Fallback: filter from all products
-        const all = await getProducts();
-        const filtered = (Array.isArray(all) ? all : []).filter((p: any) => p.stock <= 50);
-        setLowStock(filtered);
-      }
+      const all = await getProducts();
+      // Low stock = less than 1 KG (1000 grams)
+      const filtered = (Array.isArray(all) ? all : []).filter((p: any) => (p.stock || 0) < 1000);
+      setLowStock(filtered);
     } catch {
-      try {
-        const all = await getProducts();
-        const filtered = (Array.isArray(all) ? all : []).filter((p: any) => p.stock <= 50);
-        setLowStock(filtered);
-      } catch { setLowStock([]); }
+      setLowStock([]);
     } finally {
       setLoading(false);
     }
@@ -49,15 +41,22 @@ export default function LowStockPage() {
 
   useEffect(() => { fetchLowStock(); }, []);
 
+  const formatStock = (grams: number) => {
+    if (grams >= 1000) return `${(grams / 1000).toFixed(grams % 1000 === 0 ? 0 : 1)} KG`;
+    return `${grams} Gm`;
+  };
+
   const handleRestock = async () => {
-    if (!restockId || restockQty <= 0) return;
+    if (!restockId || (restockKg <= 0 && restockGm <= 0)) return;
     const product = lowStock.find(p => p._id === restockId);
     if (!product) return;
     try {
-      await updateProduct(restockId, { stock: product.stock + restockQty });
+      const addGrams = (restockKg * 1000) + restockGm;
+      await updateProduct(restockId, { stock: (product.stock || 0) + addGrams });
       toast({ title: "Restocked!", description: `${product.name} updated.` });
       setRestockOpen(false);
-      setRestockQty(0);
+      setRestockKg(0);
+      setRestockGm(0);
       fetchLowStock();
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
@@ -91,13 +90,13 @@ export default function LowStockPage() {
                   <h3 className="font-semibold truncate">{p.name}</h3>
                   <p className="text-xs text-muted-foreground">{p.category}</p>
                 </div>
-                <AlertTriangle size={18} className={`shrink-0 ${p.stock === 0 ? 'text-destructive' : 'text-warning'}`} />
+                <AlertTriangle size={18} className={`shrink-0 ${(p.stock || 0) === 0 ? 'text-destructive' : 'text-warning'}`} />
               </div>
               <div className="mt-3 flex items-center justify-between">
-                <span className={`text-lg font-bold ${p.stock === 0 ? 'text-destructive' : 'text-warning'}`}>
-                  {p.stock} units
+                <span className={`text-lg font-bold ${(p.stock || 0) === 0 ? 'text-destructive' : 'text-warning'}`}>
+                  {formatStock(p.stock || 0)}
                 </span>
-                <Button size="sm" variant="outline" onClick={() => { setRestockId(p._id); setRestockOpen(true); }}>
+                <Button size="sm" variant="outline" onClick={() => { setRestockId(p._id); setRestockKg(0); setRestockGm(0); setRestockOpen(true); }}>
                   Restock
                 </Button>
               </div>
@@ -112,9 +111,15 @@ export default function LowStockPage() {
             <DialogTitle style={{ fontFamily: 'var(--font-display)' }}>Restock Product</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
-            <div>
-              <Label>Add Quantity</Label>
-              <Input type="number" value={restockQty || ""} onChange={(e) => setRestockQty(Number(e.target.value))} min={1} className="input-focus" />
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Add KG</Label>
+                <Input type="number" value={restockKg || ""} onChange={(e) => setRestockKg(Number(e.target.value))} min={0} step="0.01" className="input-focus" />
+              </div>
+              <div>
+                <Label>Add Gram</Label>
+                <Input type="number" value={restockGm || ""} onChange={(e) => setRestockGm(Number(e.target.value))} min={0} step="1" className="input-focus" />
+              </div>
             </div>
             <Button onClick={handleRestock} className="w-full gradient-primary text-primary-foreground">Update Stock</Button>
           </div>
