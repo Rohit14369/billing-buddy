@@ -52,7 +52,8 @@ function calcAmount(netWeight: number, rate: number): number {
 }
 
 function calcQuantity(netWeight: number, unit: "Kgs" | "Gms"): number {
-  return unit === "Kgs" ? netWeight : netWeight * 1000;
+  const quantity = unit === "Kgs" ? netWeight : netWeight * 1000;
+  return parseFloat(quantity.toFixed(2)); // Round to 2 decimal places
 }
 
 const emptyItem = (): BillItem => ({
@@ -186,7 +187,6 @@ export default function BillingPage() {
 
       await createBill(payload);
 
-      // Deduct stock for each product (stock is in grams)
       try {
         const allProducts = await getProducts();
         const productsList = Array.isArray(allProducts) ? allProducts : [];
@@ -400,7 +400,7 @@ export default function BillingPage() {
                   <td className="px-1 py-1">
                     <Input
                       type="number"
-                      value={item.quantity || ""}
+                      value={item.quantity.toFixed(2)} // Display rounded quantity
                       readOnly
                       className="h-8 text-sm text-center border-0 bg-transparent focus-visible:ring-1"
                     />
