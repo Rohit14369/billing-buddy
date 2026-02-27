@@ -23,20 +23,45 @@ export default function Attendance() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim() || !phone.trim()) {
-      toast({ title: 'Missing info', description: 'Enter your name and phone number', variant: 'destructive' });
+      toast({
+        title: 'Missing info',
+        description: 'Please enter your name and phone number',
+        variant: 'destructive',
+      });
       return;
     }
     setSubmitted(true);
-    toast({ title: 'Attendance Submitted!', description: 'Click "Approve & Send to WhatsApp" to confirm.' });
+    toast({
+      title: 'Attendance Submitted!',
+      description: 'Click "Approve & Send to WhatsApp" to confirm.',
+    });
   };
 
   const handleApprove = () => {
     const text = encodeURIComponent(
-      `📋 *Attendance Log*\n━━━━━━━━━━━━━━━━━━\n👤 Name: *${name}*\n📱 Phone: ${phone}\n📅 Date: ${date}\n🕐 Time: ${time}\n✅ Status: *Present*\n━━━━━━━━━━━━━━━━━━\n_Sadik Traders Attendance System_`
+      `📋 *Attendance Log*
+━━━━━━━━━━━━━━━━━━
+👤 Name: *${name}*
+📱 Phone: ${phone}
+📅 Date: ${date}
+🕐 Time: ${time}
+✅ Status: *Present*
+━━━━━━━━━━━━━━━━━━
+_Sadik Traders Attendance System_`
     );
     window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${text}`, '_blank');
     setApproved(true);
-    toast({ title: 'Attendance Approved!', description: 'Sent to admin WhatsApp.' });
+    toast({
+      title: 'Attendance Approved!',
+      description: 'Your attendance has been sent to admin via WhatsApp.',
+    });
+  };
+
+  const handleReset = () => {
+    setName(user?.name || '');
+    setPhone('');
+    setSubmitted(false);
+    setApproved(false);
   };
 
   return (
@@ -51,11 +76,24 @@ export default function Attendance() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label>Your Name</Label>
-              <Input value={name} onChange={e => setName(e.target.value)} placeholder="Enter your name" className="input-focus" required />
+              <Input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Enter your name"
+                className="input-focus"
+                required
+              />
             </div>
             <div className="space-y-2">
               <Label>Phone Number</Label>
-              <Input value={phone} onChange={e => setPhone(e.target.value)} placeholder="Enter your phone number" className="input-focus" required type="tel" />
+              <Input
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="Enter your phone number"
+                className="input-focus"
+                required
+                type="tel"
+              />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
@@ -67,7 +105,10 @@ export default function Attendance() {
                 <Input value={time} readOnly className="bg-muted/30" />
               </div>
             </div>
-            <Button type="submit" className="w-full gradient-primary text-primary-foreground hover-glow">
+            <Button
+              type="submit"
+              className="w-full gradient-primary text-primary-foreground hover-glow"
+            >
               Submit Attendance
             </Button>
           </form>
@@ -79,7 +120,10 @@ export default function Attendance() {
               <p><strong>Date:</strong> {date}</p>
               <p><strong>Time:</strong> {time}</p>
             </div>
-            <Button onClick={handleApprove} className="w-full gap-2 gradient-primary text-primary-foreground hover-glow">
+            <Button
+              onClick={handleApprove}
+              className="w-full gap-2 gradient-primary text-primary-foreground hover-glow"
+            >
               <Send size={16} /> Approve & Send to WhatsApp
             </Button>
           </div>
@@ -89,7 +133,15 @@ export default function Attendance() {
               <ClipboardCheck size={32} className="text-success" />
             </div>
             <h3 className="font-display text-lg font-semibold text-success">Attendance Approved!</h3>
-            <p className="text-sm text-muted-foreground">Your attendance has been sent to admin via WhatsApp.</p>
+            <p className="text-sm text-muted-foreground">
+              Your attendance has been sent to admin via WhatsApp.
+            </p>
+            <Button
+              onClick={handleReset}
+              className="w-full gradient-primary text-primary-foreground hover-glow"
+            >
+              Submit New Attendance
+            </Button>
           </div>
         )}
       </div>
