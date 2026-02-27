@@ -4,11 +4,12 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { FileText, Trash2, Search, Eye, IndianRupee, Pencil, Printer, RotateCcw, ArrowLeft, Users } from "lucide-react";
+import { FileText, Trash2, Search, Eye, IndianRupee, Pencil, Printer, RotateCcw, ArrowLeft, Users, FileSpreadsheet } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import InvoicePrint from "@/components/InvoicePrint";
 import type { BillData, BillItem } from "@/pages/BillingPage";
+import * as XLSX from "xlsx";
 
 interface Bill {
   _id: string;
@@ -30,6 +31,7 @@ interface Bill {
 
 interface CustomerSummary {
   name: string;
+  mobile: string;
   totalBills: number;
   totalAmount: number;
   totalPaid: number;
@@ -79,13 +81,77 @@ export default function BillsPage() {
 
   const formatDate = (d: string) => new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric" });
 
-  // Group bills by customer (case insensitive)
+  // Export customers to Excel
+  const exportCustomersToExcel = () => {
+    // Group bills by customer (name + mobile)
+    const customers: CustomerSummary[] = (() => {
+      const map = new Map<string, CustomerSummary>();
+      bills.forEach(bill => {
+        const key = `${(bill.customerName || "Unknown").toLowerCase().trim()}-${(bill.mobile || "").toLowerCase().trim()}`;
+        if (!map.has(key)) {
+          map.set(key, {
+            name: bill.customerName || "Unknown",
+            mobile: bill.mobile || "",
+            totalBills: 0,
+            totalAmount: 0,
+            totalPaid: 0,
+            totalPending: 0,
+            bills: []
+          });
+        }
+        const c = map.get(key)!;
+        c.totalBills++;
+        c.totalAmount += bill.total || 0;
+        c.totalPaid += getBillPaid(bill);
+        c.totalPending += getBillPending(bill);
+        c.bills.push(bill);
+      });
+      return Array.from(map.values());
+    })();
+
+    if (customers.length === 0) {
+      toast({ title: "No Data", description: "No customers to export", variant: "warning" });
+      return;
+    }
+
+    // Prepare data for Excel
+    const data = customers.map(customer => ({
+      "Customer Name": customer.name,
+      "Mobile": customer.mobile || "N/A",
+      "Total Bills": customer.totalBills,
+      "Total Amount (₹)": customer.totalAmount.toFixed(2),
+      "Total Paid (₹)": customer.totalPaid.toFixed(2),
+      "Total Pending (₹)": customer.totalPending.toFixed(2),
+      "Status": customer.totalPending > 0 ? "PENDING" : "PAID",
+      "Last Bill Date": customer.bills.length > 0 ?
+        formatDate(customer.bills[customer.bills.length - 1].createdAt || "") : "N/A"
+    }));
+
+    // Create worksheet and workbook
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Customers");
+
+    // Generate Excel file
+    XLSX.writeFile(workbook, `Customers_${new Date().toISOString().split('T')[0]}.xlsx`);
+    toast({ title: "Exported!", description: "Customers Excel file downloaded successfully" });
+  };
+
+  // Group bills by customer (name + mobile)
   const customers: CustomerSummary[] = (() => {
     const map = new Map<string, CustomerSummary>();
     bills.forEach(bill => {
-      const key = (bill.customerName || "Unknown").toLowerCase().trim();
+      const key = `${(bill.customerName || "Unknown").toLowerCase().trim()}-${(bill.mobile || "").toLowerCase().trim()}`;
       if (!map.has(key)) {
-        map.set(key, { name: bill.customerName || "Unknown", totalBills: 0, totalAmount: 0, totalPaid: 0, totalPending: 0, bills: [] });
+        map.set(key, {
+          name: bill.customerName || "Unknown",
+          mobile: bill.mobile || "",
+          totalBills: 0,
+          totalAmount: 0,
+          totalPaid: 0,
+          totalPending: 0,
+          bills: []
+        });
       }
       const c = map.get(key)!;
       c.totalBills++;
@@ -98,7 +164,8 @@ export default function BillsPage() {
   })();
 
   const filteredCustomers = customers.filter(c =>
-    c.name.toLowerCase().includes(search.toLowerCase())
+    c.name.toLowerCase().includes(search.toLowerCase()) ||
+    c.mobile.toLowerCase().includes(search.toLowerCase())
   );
 
   // Bill actions
@@ -177,7 +244,6 @@ export default function BillsPage() {
       const products = await getProducts();
       const product = (Array.isArray(products) ? products : []).find((p: any) => p.name.toLowerCase() === (item.productName || "").toLowerCase());
       if (product) {
-        // Restock in grams
         const restockGrams = returnQty * 1000;
         await updateProduct(product._id, { stock: (product.stock || 0) + restockGrams });
       }
@@ -208,105 +274,6 @@ export default function BillsPage() {
       toast({ title: "Error", description: err.message, variant: "destructive" });
     }
   };
-
-  // Render customer history view
-  if (selectedCustomer) {
-    // Refresh customer data from bills state
-    const key = selectedCustomer.name.toLowerCase().trim();
-    const customerBills = bills.filter(b => (b.customerName || "").toLowerCase().trim() === key);
-    const totalAmount = customerBills.reduce((s, b) => s + (b.total || 0), 0);
-    const totalPaid = customerBills.reduce((s, b) => s + getBillPaid(b), 0);
-    const totalPending = customerBills.reduce((s, b) => s + getBillPending(b), 0);
-
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" onClick={() => setSelectedCustomer(null)}>
-            <ArrowLeft size={16} />
-          </Button>
-          <div>
-            <h1 className="page-header text-xl sm:text-2xl md:text-3xl">{selectedCustomer.name}</h1>
-            <p className="text-sm text-muted-foreground">Customer History — {customerBills.length} invoice(s)</p>
-          </div>
-        </div>
-
-        {/* Summary cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="stat-card">
-            <p className="text-sm text-muted-foreground">Total Amount</p>
-            <p className="text-xl font-bold font-mono">₹{totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
-          </div>
-          <div className="stat-card">
-            <p className="text-sm text-muted-foreground">Total Paid</p>
-            <p className="text-xl font-bold font-mono text-success">₹{totalPaid.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
-          </div>
-          <div className="stat-card">
-            <p className="text-sm text-muted-foreground">Total Pending</p>
-            <p className="text-xl font-bold font-mono text-destructive">₹{totalPending.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
-          </div>
-        </div>
-
-        {/* Invoices table */}
-        <div className="glass-card overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="gradient-primary text-primary-foreground">
-                  <th className="px-3 py-3 text-center font-semibold">Invoice</th>
-                  <th className="px-3 py-3 text-center font-semibold">Date</th>
-                  <th className="px-3 py-3 text-right font-semibold">Total (₹)</th>
-                  <th className="px-3 py-3 text-right font-semibold">Paid (₹)</th>
-                  <th className="px-3 py-3 text-right font-semibold">Pending (₹)</th>
-                  <th className="px-3 py-3 text-center font-semibold">Status</th>
-                  <th className="px-3 py-3 text-center font-semibold w-36">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {customerBills.map((bill) => {
-                  const paid = getBillPaid(bill);
-                  const pending = getBillPending(bill);
-                  const billStatus = getBillStatus(bill);
-                  return (
-                    <tr key={bill._id} className="border-b border-border table-row-hover">
-                      <td className="px-3 py-3 text-center font-mono">{bill.invoiceNo || "-"}</td>
-                      <td className="px-3 py-3 text-center text-muted-foreground">{formatDate(bill.date || bill.createdAt || "")}</td>
-                      <td className="px-3 py-3 text-right font-mono font-medium">₹{bill.total?.toFixed(2)}</td>
-                      <td className="px-3 py-3 text-right font-mono text-success">₹{paid.toFixed(2)}</td>
-                      <td className="px-3 py-3 text-right font-mono text-destructive">₹{pending.toFixed(2)}</td>
-                      <td className="px-3 py-3 text-center">
-                        <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${billStatus === 'PAID' ? 'badge-success' : 'badge-danger'}`}>
-                          {billStatus}
-                        </span>
-                      </td>
-                      <td className="px-3 py-3 text-center">
-                        <div className="flex items-center justify-center gap-1">
-                          <button onClick={() => setViewBill(bill)} className="text-muted-foreground hover:text-primary transition-colors p-1" title="View"><Eye size={14} /></button>
-                          <button onClick={() => openEditBill(bill)} className="text-muted-foreground hover:text-primary transition-colors p-1" title="Edit"><Pencil size={14} /></button>
-                          <button onClick={() => handlePrintBill(bill)} className="text-muted-foreground hover:text-primary transition-colors p-1" title="Print"><Printer size={14} /></button>
-                          <button onClick={() => { setReturnBill(bill); setReturnItemIdx(0); setReturnQty(0); setReturnOpen(true); }} className="text-muted-foreground hover:text-warning transition-colors p-1" title="Return"><RotateCcw size={14} /></button>
-                          {pending > 0 && (
-                            <button onClick={() => { setPayBillId(bill._id); setPaymentOpen(true); }} className="text-muted-foreground hover:text-success transition-colors p-1" title="Pay"><IndianRupee size={14} /></button>
-                          )}
-                          <button onClick={() => handleDelete(bill._id)} className="text-muted-foreground hover:text-destructive transition-colors p-1" title="Delete"><Trash2 size={14} /></button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {/* All dialogs */}
-        {renderDialogs()}
-
-        <div className="print-area" ref={printRef}>
-          {printBill && <InvoicePrint bill={printBill} />}
-        </div>
-      </div>
-    );
-  }
 
   function renderDialogs() {
     return (
@@ -409,17 +376,130 @@ export default function BillsPage() {
     );
   }
 
-  // Main customers list view
+  // Customer history view
+  if (selectedCustomer) {
+    const key = `${selectedCustomer.name.toLowerCase().trim()}-${selectedCustomer.mobile.toLowerCase().trim()}`;
+    const customerBills = bills.filter(b =>
+      `${(b.customerName || "").toLowerCase().trim()}-${(b.mobile || "").toLowerCase().trim()}` === key
+    );
+    const totalAmount = customerBills.reduce((s, b) => s + (b.total || 0), 0);
+    const totalPaid = customerBills.reduce((s, b) => s + getBillPaid(b), 0);
+    const totalPending = customerBills.reduce((s, b) => s + getBillPending(b), 0);
+
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="sm" onClick={() => setSelectedCustomer(null)}>
+            <ArrowLeft size={16} />
+          </Button>
+          <div>
+            <h1 className="page-header text-xl sm:text-2xl md:text-3xl">
+              {selectedCustomer.name} {selectedCustomer.mobile && `(${selectedCustomer.mobile})`}
+            </h1>
+            <p className="text-sm text-muted-foreground">Customer History — {customerBills.length} invoice(s)</p>
+          </div>
+        </div>
+
+        {/* Summary cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="stat-card">
+            <p className="text-sm text-muted-foreground">Total Amount</p>
+            <p className="text-xl font-bold font-mono">₹{totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
+          </div>
+          <div className="stat-card">
+            <p className="text-sm text-muted-foreground">Total Paid</p>
+            <p className="text-xl font-bold font-mono text-success">₹{totalPaid.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
+          </div>
+          <div className="stat-card">
+            <p className="text-sm text-muted-foreground">Total Pending</p>
+            <p className="text-xl font-bold font-mono text-destructive">₹{totalPending.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
+          </div>
+        </div>
+
+        {/* Invoices table */}
+        <div className="glass-card overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="gradient-primary text-primary-foreground">
+                  <th className="px-3 py-3 text-center font-semibold">Invoice</th>
+                  <th className="px-3 py-3 text-center font-semibold">Date</th>
+                  <th className="px-3 py-3 text-right font-semibold">Total (₹)</th>
+                  <th className="px-3 py-3 text-right font-semibold">Paid (₹)</th>
+                  <th className="px-3 py-3 text-right font-semibold">Pending (₹)</th>
+                  <th className="px-3 py-3 text-center font-semibold">Status</th>
+                  <th className="px-3 py-3 text-center font-semibold w-36">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {customerBills.map((bill) => {
+                  const paid = getBillPaid(bill);
+                  const pending = getBillPending(bill);
+                  const billStatus = getBillStatus(bill);
+                  return (
+                    <tr key={bill._id} className="border-b border-border table-row-hover">
+                      <td className="px-3 py-3 text-center font-mono">{bill.invoiceNo || "-"}</td>
+                      <td className="px-3 py-3 text-center text-muted-foreground">{formatDate(bill.date || bill.createdAt || "")}</td>
+                      <td className="px-3 py-3 text-right font-mono font-medium">₹{bill.total?.toFixed(2)}</td>
+                      <td className="px-3 py-3 text-right font-mono text-success">₹{paid.toFixed(2)}</td>
+                      <td className="px-3 py-3 text-right font-mono text-destructive">₹{pending.toFixed(2)}</td>
+                      <td className="px-3 py-3 text-center">
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${billStatus === 'PAID' ? 'badge-success' : 'badge-danger'}`}>
+                          {billStatus}
+                        </span>
+                      </td>
+                      <td className="px-3 py-3 text-center">
+                        <div className="flex items-center justify-center gap-1">
+                          <button onClick={() => setViewBill(bill)} className="text-muted-foreground hover:text-primary transition-colors p-1" title="View"><Eye size={14} /></button>
+                          <button onClick={() => openEditBill(bill)} className="text-muted-foreground hover:text-primary transition-colors p-1" title="Edit"><Pencil size={14} /></button>
+                          <button onClick={() => handlePrintBill(bill)} className="text-muted-foreground hover:text-primary transition-colors p-1" title="Print"><Printer size={14} /></button>
+                          <button onClick={() => { setReturnBill(bill); setReturnItemIdx(0); setReturnQty(0); setReturnOpen(true); }} className="text-muted-foreground hover:text-warning transition-colors p-1" title="Return"><RotateCcw size={14} /></button>
+                          {pending > 0 && (
+                            <button onClick={() => { setPayBillId(bill._id); setPaymentOpen(true); }} className="text-muted-foreground hover:text-success transition-colors p-1" title="Pay"><IndianRupee size={14} /></button>
+                          )}
+                          <button onClick={() => handleDelete(bill._id)} className="text-muted-foreground hover:text-destructive transition-colors p-1" title="Delete"><Trash2 size={14} /></button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {renderDialogs()}
+
+        <div className="print-area" ref={printRef}>
+          {printBill && <InvoicePrint bill={printBill} />}
+        </div>
+      </div>
+    );
+  }
+
+  // Main customers list view with Excel export button
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <h1 className="page-header text-xl sm:text-2xl md:text-3xl">Customers</h1>
-        <Button onClick={() => navigate("/billing")} className="gradient-primary text-primary-foreground hover-glow">New Bill</Button>
+        <div className="flex gap-2">
+          <Button onClick={() => navigate("/billing")} className="gradient-primary text-primary-foreground hover-glow">
+            New Bill
+          </Button>
+          <Button
+            onClick={exportCustomersToExcel}
+            variant="outline"
+            className="gap-1"
+            disabled={customers.length === 0}
+          >
+            <FileSpreadsheet size={16} /> Export to Excel
+          </Button>
+        </div>
       </div>
 
       <div className="relative max-w-md">
         <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-        <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search customers..." className="pl-10 input-focus" />
+        <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search customers by name or mobile..." className="pl-10 input-focus" />
       </div>
 
       {loading ? (
@@ -436,6 +516,7 @@ export default function BillsPage() {
               <thead>
                 <tr className="gradient-primary text-primary-foreground">
                   <th className="px-3 py-3 text-left font-semibold">Customer Name</th>
+                  <th className="px-3 py-3 text-center font-semibold">Mobile</th>
                   <th className="px-3 py-3 text-center font-semibold">Invoices</th>
                   <th className="px-3 py-3 text-right font-semibold">Total (₹)</th>
                   <th className="px-3 py-3 text-right font-semibold">Paid (₹)</th>
@@ -447,8 +528,9 @@ export default function BillsPage() {
                 {filteredCustomers.map((c) => {
                   const status = c.totalPending > 0 ? "PENDING" : "PAID";
                   return (
-                    <tr key={c.name} className="border-b border-border table-row-hover cursor-pointer" onClick={() => setSelectedCustomer(c)}>
+                    <tr key={`${c.name}-${c.mobile}`} className="border-b border-border table-row-hover cursor-pointer" onClick={() => setSelectedCustomer(c)}>
                       <td className="px-3 py-3 font-medium text-primary hover:underline">{c.name}</td>
+                      <td className="px-3 py-3 text-center font-mono">{c.mobile || "-"}</td>
                       <td className="px-3 py-3 text-center font-mono">{c.totalBills}</td>
                       <td className="px-3 py-3 text-right font-mono font-medium">₹{c.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
                       <td className="px-3 py-3 text-right font-mono text-success">₹{c.totalPaid.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>

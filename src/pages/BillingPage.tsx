@@ -10,7 +10,9 @@ import InvoicePrint from "@/components/InvoicePrint";
 interface Product {
   _id: string;
   name: string;
-  stock: number; // Stock in grams
+  stock?: number;
+  stockKg: number;
+  stockGm: number;
   code: string;
 }
 
@@ -83,6 +85,7 @@ export default function BillingPage() {
   const [showPrint, setShowPrint] = useState(false);
   const [productSearch, setProductSearch] = useState("");
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
+  const [activeItemId, setActiveItemId] = useState<string | null>(null);
 
   const [partyName, setPartyName] = useState("");
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
@@ -109,7 +112,7 @@ export default function BillingPage() {
 
   useEffect(() => {
     if (productSearch.trim()) {
-      const timer = setTimeout(() => fetchAndFilterProducts(productSearch), 500);
+      const timer = setTimeout(() => fetchAndFilterProducts(productSearch), 300);
       return () => clearTimeout(timer);
     } else {
       setFilteredProducts([]);
@@ -135,6 +138,7 @@ export default function BillingPage() {
   const updateItem = (id: string, field: keyof BillItem, value: any) => {
     if (field === "productName") {
       setProductSearch(value);
+      setActiveItemId(id);
     }
     setItems((prev) =>
       prev.map((item) => {
@@ -151,6 +155,7 @@ export default function BillingPage() {
   const handleProductSelect = (product: Product, itemId: string) => {
     updateItem(itemId, "productName", product.name);
     setProductSearch("");
+    setActiveItemId(null);
   };
 
   const addItem = () => setItems((prev) => [...prev, emptyItem()]);
@@ -186,7 +191,6 @@ export default function BillingPage() {
       return;
     }
 
-    // Check stock before saving
     try {
       const allProducts = await getProducts();
       const productsList = Array.isArray(allProducts) ? allProducts : [];
@@ -199,19 +203,16 @@ export default function BillingPage() {
           toast({ title: "Error", description: `Product "${item.productName}" not found`, variant: "destructive" });
           return;
         }
+        // Calculate total stock in grams
+        const totalStockGrams = ((product.stockKg || 0) * 1000) + (product.stockGm || 0);
         const requiredGrams = item.netWeight * 1000;
-        if ((product.stock || 0) < requiredGrams) {
+        if (totalStockGrams < requiredGrams) {
           toast({ title: "Error", description: `Not enough stock for "${item.productName}"`, variant: "destructive" });
           return;
         }
       }
-    } catch (err: any) {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
-      return;
-    }
 
-    setSaving(true);
-    try {
+      setSaving(true);
       const backendItems: any[] = items.map((i) => ({
         productName: i.productName,
         category: "general",
@@ -251,25 +252,27 @@ export default function BillingPage() {
       await createBill(payload);
 
       try {
-        const allProducts = await getProducts();
-        const productsList = Array.isArray(allProducts) ? allProducts : [];
         for (const item of items) {
           const product = productsList.find(
             (p: any) => p.name?.toLowerCase() === item.productName.toLowerCase()
           );
-          if (product && product.stock !== undefined) {
+          if (product && product._id) {
             const deductGrams = item.netWeight * 1000;
-            const newStock = Math.max(0, (product.stock || 0) - deductGrams);
-            await updateProduct(product._id, { stock: newStock });
-          } else {
-            console.warn(`Product not found or stock undefined for: ${item.productName}`);
+            const totalStockGrams = ((product.stockKg || 0) * 1000) + (product.stockGm || 0);
+            const newStockGrams = Math.max(0, totalStockGrams - deductGrams);
+            const newStockKg = Math.floor(newStockGrams / 1000);
+            const newStockGm = newStockGrams % 1000;
+            await updateProduct(product._id, {
+              stockKg: newStockKg,
+              stockGm: newStockGm,
+            });
           }
         }
       } catch (stockErr) {
         console.error("Stock deduction error:", stockErr);
         toast({
           title: "Warning",
-          description: "Failed to update stock for some products. Check console for details.",
+          description: "Failed to update stock for some products.",
           variant: "warning",
         });
       }
@@ -287,7 +290,7 @@ export default function BillingPage() {
           console.error("Payment record error:", paymentErr);
           toast({
             title: "Warning",
-            description: "Failed to save payment record. Check console for details.",
+            description: "Failed to save payment record.",
             variant: "warning",
           });
         }
@@ -449,10 +452,11 @@ export default function BillingPage() {
                       <Input
                         value={item.productName}
                         onChange={(e) => updateItem(item.id, "productName", e.target.value)}
+                        onFocus={() => setActiveItemId(item.id)}
                         placeholder="Product name"
                         className="h-8 text-sm border-0 bg-transparent focus-visible:ring-1"
                       />
-                      {productSearch && filteredProducts.length > 0 && (
+                      {productSearch && filteredProducts.length > 0 && activeItemId === item.id && (
                         <div className="absolute z-10 w-full mt-1 bg-white border border-border rounded shadow-lg">
                           {filteredProducts.map((product) => (
                             <div

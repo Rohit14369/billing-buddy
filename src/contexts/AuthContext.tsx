@@ -64,7 +64,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
     localStorage.setItem("st_token", data.token);
     localStorage.setItem("st_user", JSON.stringify(userData));
-    setToken(data.token);
+    setToken(data.token); 
     setUser(userData);
   };
 
