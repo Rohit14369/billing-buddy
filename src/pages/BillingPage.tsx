@@ -273,7 +273,7 @@ export default function BillingPage() {
         toast({
           title: "Warning",
           description: "Failed to update stock for some products.",
-          variant: "warning",
+          variant: "destructive",
         });
       }
 
@@ -291,7 +291,7 @@ export default function BillingPage() {
           toast({
             title: "Warning",
             description: "Failed to save payment record.",
-            variant: "warning",
+            variant: "destructive",
           });
         }
       }

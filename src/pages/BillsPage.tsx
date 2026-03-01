@@ -110,7 +110,7 @@ export default function BillsPage() {
     })();
 
     if (customers.length === 0) {
-      toast({ title: "No Data", description: "No customers to export", variant: "warning" });
+      toast({ title: "No Data", description: "No customers to export", variant: "destructive" });
       return;
     }
 
