@@ -58,6 +58,7 @@ function AppRoutes() {
         <Route path="/pending" element={<PendingPage />} />
         <Route path="/products" element={<ProductsPage />} />
         <Route path="/low-stock" element={<LowStockPage />} />
+        <Route path="/attendance" element={<Navigate to="/" replace />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </AppLayout>
