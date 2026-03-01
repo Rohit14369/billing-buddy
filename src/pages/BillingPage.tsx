@@ -307,7 +307,12 @@ export default function BillingPage() {
 
   const handlePrint = () => {
     setShowPrint(true);
-    setTimeout(() => window.print(), 300);
+    setTimeout(() => {
+      const origTitle = document.title;
+      document.title = "Billing Receipt Generated Successfully.";
+      window.print();
+      document.title = origTitle;
+    }, 300);
   };
 
   const resetForm = () => {
