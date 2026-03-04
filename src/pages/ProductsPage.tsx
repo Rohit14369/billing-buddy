@@ -20,6 +20,7 @@ interface Product {
   category: string;
   code: string;
   image: string;
+  bagWeight?: number;
 }
 
 const emptyForm = {
@@ -32,6 +33,8 @@ const emptyForm = {
   buyingPrice: "",
   stockKg: "",
   stockGm: "",
+  bags: "",
+  bagWeight: "",
 };
 
 export default function ProductsPage() {
@@ -56,6 +59,21 @@ export default function ProductsPage() {
 
   useEffect(() => { fetchProducts(); }, []);
 
+  // Auto-calculate KG from bags
+  const handleBagsChange = (bags: string) => {
+    const numBags = Number(bags) || 0;
+    const bagWt = Number(form.bagWeight) || 0;
+    const totalKg = numBags * bagWt;
+    setForm({ ...form, bags, stockKg: String(totalKg), stockGm: "0" });
+  };
+
+  const handleBagWeightChange = (bagWeight: string) => {
+    const numBags = Number(form.bags) || 0;
+    const bagWt = Number(bagWeight) || 0;
+    const totalKg = numBags * bagWt;
+    setForm({ ...form, bagWeight, stockKg: String(totalKg), stockGm: "0" });
+  };
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name) {
@@ -63,19 +81,19 @@ export default function ProductsPage() {
       return;
     }
 
-    // Generate a random code if not provided
     const productCode = form.code.trim() || `PROD-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
 
     const cleanForm = {
       name: form.name,
       category: form.category,
-      code: productCode, // Use generated code if empty
+      code: productCode,
       image: form.image,
       normalPrice: Number(form.normalPrice),
       retailerPrice: Number(form.retailerPrice),
       buyingPrice: Number(form.buyingPrice),
       stockKg: Number(form.stockKg) || 0,
       stockGm: Number(form.stockGm) || 0,
+      bagWeight: Number(form.bagWeight) || 0,
     };
 
     try {
@@ -106,6 +124,8 @@ export default function ProductsPage() {
       buyingPrice: String(p.buyingPrice || ""),
       stockKg: String(p.stockKg || ""),
       stockGm: String(p.stockGm || ""),
+      bags: "",
+      bagWeight: String(p.bagWeight || ""),
     });
     setEditing(p._id);
     setDialogOpen(true);
@@ -153,7 +173,7 @@ export default function ProductsPage() {
           <DialogTrigger asChild>
             <Button className="gradient-primary text-primary-foreground hover-glow gap-1"><Plus size={16} /> Add Product</Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle style={{ fontFamily: 'var(--font-display)' }}>{editing ? "Edit Product" : "Add New Product"}</DialogTitle>
             </DialogHeader>
@@ -172,6 +192,28 @@ export default function ProductsPage() {
                   <Input value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} placeholder="e.g. Dry Fruits" className="input-focus" />
                 </div>
               </div>
+
+              {/* Bag Concept */}
+              <div className="border border-border rounded-md p-3 space-y-2">
+                <Label className="text-sm font-semibold">Bag Entry (Optional)</Label>
+                <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <Label className="text-xs">Bag Weight (KG)</Label>
+                    <Input type="number" value={form.bagWeight} onChange={(e) => handleBagWeightChange(e.target.value)} className="input-focus" step="0.01" placeholder="e.g. 10" />
+                  </div>
+                  <div>
+                    <Label className="text-xs">No. of Bags</Label>
+                    <Input type="number" value={form.bags} onChange={(e) => handleBagsChange(e.target.value)} className="input-focus" placeholder="e.g. 6" />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Auto Total</Label>
+                    <div className="h-10 flex items-center px-3 text-sm font-medium bg-muted rounded-md">
+                      {((Number(form.bags) || 0) * (Number(form.bagWeight) || 0)).toFixed(1)} KG
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label>Stock (KG)</Label>

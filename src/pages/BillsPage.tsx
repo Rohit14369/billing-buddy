@@ -224,12 +224,21 @@ export default function BillsPage() {
       lessWeightKg: i.lessWeightKg || 0, lessWeightGm: i.lessWeightGm || 0,
       unit: i.unit || "Kgs", rate: i.price || 0,
       netWeight: i.netWeight || i.quantity || 0, amount: i.total || 0,
+      gstPercent: i.gstPercent || 0, gstAmount: i.gstAmount || 0,
+      totalWithGst: i.totalWithGst || i.total || 0,
     }));
+    const paid = (bill.paidAmount || 0) + getTotalPaidForBill(bill._id);
+    const pending = Math.max(0, (bill.total || 0) - paid);
     const bd: BillData = {
       partyName: bill.customerName, date: bill.date || bill.createdAt || "",
       mobile: bill.mobile || "", invoiceNo: bill.invoiceNo || "", items,
       hamali: bill.hamali || 0, roundedOff: bill.roundedOff || 0,
       subtotal: bill.subtotal || bill.total || 0, grandTotal: bill.total || 0,
+      gstEnabled: (bill as any).gstEnabled || false,
+      gstNumber: (bill as any).gstNumber || "",
+      totalGstAmount: (bill as any).totalGstAmount || 0,
+      paidAmount: paid, pendingAmount: pending,
+      status: pending > 0 ? "PENDING" : "PAID",
     };
     setPrintBill(bd);
     setTimeout(() => window.print(), 300);

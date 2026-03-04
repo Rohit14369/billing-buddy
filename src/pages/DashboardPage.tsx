@@ -25,8 +25,13 @@ export default function DashboardPage() {
     ? `${(totalStockGrams / 1000).toFixed(1)} KG`
     : `${totalStockGrams} Gm`;
 
-  // Low stock: less than 1 KG (1000 grams)
-  const lowStockCount = apiProducts.filter((p: any) => (p.stock || 0) < 1000).length;
+  // Low stock: less than 50 KG (same as LowStockPage)
+  const lowStockCount = apiProducts.filter((p: any) => {
+    const kg = typeof p.stockKg === "string" ? parseFloat(p.stockKg) || 0 : p.stockKg || 0;
+    const gm = typeof p.stockGm === "string" ? parseFloat(p.stockGm) || 0 : p.stockGm || 0;
+    const totalKg = kg + gm / 1000;
+    return totalKg < 50;
+  }).length;
 
   const totalRevenue = apiBills.reduce((s: number, b: any) => s + (b.total || 0), 0);
 

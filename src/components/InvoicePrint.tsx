@@ -16,9 +16,22 @@ export default function InvoicePrint({ bill }: Props) {
       {/* Header */}
       <table className="w-full border-collapse border border-black mb-0">
         <tbody>
+          {bill.gstEnabled && (
+            <tr>
+              <td className="border border-black p-2 text-center" colSpan={7}>
+                <div className="flex items-center justify-center gap-3">
+                  <img src="/logo.jpeg" alt="Sadik Traders" className="h-10 w-10 rounded-full object-cover print:block" />
+                  <div>
+                    <div className="text-lg font-bold">Sadik Traders</div>
+                    <div className="text-[11px]">GSTIN: {bill.gstNumber}</div>
+                  </div>
+                </div>
+              </td>
+            </tr>
+          )}
           <tr>
             <td className="border border-black p-2 text-center text-lg font-bold" colSpan={4}>
-              // Estimate Copy //
+              {bill.gstEnabled ? "// Tax Invoice //" : "// Estimate Copy //"}
             </td>
             <td className="border border-black p-2 text-center" colSpan={3}>
               Inv. No.: <strong>'{bill.invoiceNo}'</strong>
@@ -46,6 +59,7 @@ export default function InvoicePrint({ bill }: Props) {
             <th className="border border-black p-1 text-center w-16">Weight.</th>
             <th className="border border-black p-1 text-center w-12">Unit</th>
             <th className="border border-black p-1 text-center w-16">Price</th>
+            {bill.gstEnabled && <th className="border border-black p-1 text-center w-14">GST%</th>}
             <th className="border border-black p-1 text-right w-24">Amount (₹)</th>
           </tr>
         </thead>
@@ -68,7 +82,12 @@ export default function InvoicePrint({ bill }: Props) {
                 <td className="border border-black p-1 text-center">{item.netWeight.toFixed(2)}</td>
                 <td className="border border-black p-1 text-center">{item.unit}.</td>
                 <td className="border border-black p-1 text-center">{item.rate.toFixed(2)}</td>
-                <td className="border border-black p-1 text-right">{item.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                {bill.gstEnabled && (
+                  <td className="border border-black p-1 text-center">{item.gstPercent}%</td>
+                )}
+                <td className="border border-black p-1 text-right">
+                  {(bill.gstEnabled ? item.totalWithGst : item.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                </td>
               </tr>
             );
           })}
@@ -80,6 +99,7 @@ export default function InvoicePrint({ bill }: Props) {
               <td className="border border-black p-1"></td>
               <td className="border border-black p-1"></td>
               <td className="border border-black p-1"></td>
+              {bill.gstEnabled && <td className="border border-black p-1"></td>}
               <td className="border border-black p-1"></td>
             </tr>
           ))}
@@ -89,6 +109,12 @@ export default function InvoicePrint({ bill }: Props) {
       {/* Totals */}
       <table className="w-full border-collapse border border-black border-t-0">
         <tbody>
+          {bill.gstEnabled && bill.totalGstAmount > 0 && (
+            <tr>
+              <td className="border border-black p-1" colSpan={5}>Total GST</td>
+              <td className="border border-black p-1 text-right" colSpan={2}>{bill.totalGstAmount.toFixed(2)}</td>
+            </tr>
+          )}
           {bill.hamali > 0 && (
             <tr>
               <td className="border border-black p-1" colSpan={5}>Add : Hamali</td>
@@ -105,6 +131,18 @@ export default function InvoicePrint({ bill }: Props) {
             <td className="border border-black p-2" colSpan={2}>Party</td>
             <td className="border border-black p-2 text-center" colSpan={3}>Grand Total ₹</td>
             <td className="border border-black p-2 text-right" colSpan={2}>{bill.grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+          </tr>
+          {/* Payment Summary */}
+          <tr>
+            <td className="border border-black p-1" colSpan={2}>
+              <strong>Paid:</strong> ₹{(bill.paidAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+            </td>
+            <td className="border border-black p-1 text-center" colSpan={3}>
+              <strong>Pending:</strong> ₹{(bill.pendingAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+            </td>
+            <td className="border border-black p-1 text-right font-bold" colSpan={2}>
+              {bill.status}
+            </td>
           </tr>
         </tbody>
       </table>

@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { createBill, getBills, getProducts, updateProduct } from "@/lib/api";
 import { Printer, Plus, Trash2, Save } from "lucide-react";
@@ -28,6 +29,9 @@ export interface BillItem {
   rate: number;
   netWeight: number;
   amount: number;
+  gstPercent: number;
+  gstAmount: number;
+  totalWithGst: number;
 }
 
 export interface BillData {
@@ -40,6 +44,12 @@ export interface BillData {
   roundedOff: number;
   subtotal: number;
   grandTotal: number;
+  gstEnabled: boolean;
+  gstNumber: string;
+  totalGstAmount: number;
+  paidAmount: number;
+  pendingAmount: number;
+  status: string;
 }
 
 function generateId() {
@@ -76,6 +86,9 @@ const emptyItem = (): BillItem => ({
   rate: 0,
   netWeight: 0,
   amount: 0,
+  gstPercent: 0,
+  gstAmount: 0,
+  totalWithGst: 0,
 });
 
 export default function BillingPage() {
@@ -95,6 +108,9 @@ export default function BillingPage() {
   const [hamali, setHamali] = useState<number>(0);
   const [roundedOff, setRoundedOff] = useState<number>(0);
   const [paidAmount, setPaidAmount] = useState<number>(0);
+  const [gstEnabled, setGstEnabled] = useState(false);
+
+  const GST_NUMBER = "27ABJPS0885K1Z0";
 
   const fetchAndFilterProducts = async (searchTerm: string) => {
     try {
@@ -147,6 +163,9 @@ export default function BillingPage() {
         updated.netWeight = calcNetWeight(updated);
         updated.quantity = calcQuantity(updated.netWeight, updated.unit);
         updated.amount = calcAmount(updated.netWeight, updated.rate);
+        const gstPct = Number(updated.gstPercent) || 0;
+        updated.gstAmount = parseFloat((updated.amount * gstPct / 100).toFixed(2));
+        updated.totalWithGst = parseFloat((updated.amount + updated.gstAmount).toFixed(2));
         return updated;
       })
     );
@@ -165,7 +184,8 @@ export default function BillingPage() {
   };
 
   const subtotal = items.reduce((sum, i) => sum + i.amount, 0);
-  const grandTotal = subtotal + (Number(hamali) || 0) + (Number(roundedOff) || 0);
+  const totalGstAmount = gstEnabled ? items.reduce((sum, i) => sum + i.gstAmount, 0) : 0;
+  const grandTotal = subtotal + totalGstAmount + (Number(hamali) || 0) + (Number(roundedOff) || 0);
   const pendingAmount = Math.max(0, grandTotal - (Number(paidAmount) || 0));
   const status = pendingAmount > 0 ? "PENDING" : "PAID";
 
@@ -179,6 +199,12 @@ export default function BillingPage() {
     roundedOff: Number(roundedOff) || 0,
     subtotal,
     grandTotal,
+    gstEnabled,
+    gstNumber: GST_NUMBER,
+    totalGstAmount,
+    paidAmount: Number(paidAmount) || 0,
+    pendingAmount,
+    status,
   };
 
   const handleSave = async () => {
@@ -203,7 +229,6 @@ export default function BillingPage() {
           toast({ title: "Error", description: `Product "${item.productName}" not found`, variant: "destructive" });
           return;
         }
-        // Calculate total stock in grams
         const totalStockGrams = ((product.stockKg || 0) * 1000) + (product.stockGm || 0);
         const requiredGrams = item.netWeight * 1000;
         if (totalStockGrams < requiredGrams) {
@@ -218,13 +243,15 @@ export default function BillingPage() {
         category: "general",
         price: i.rate,
         quantity: parseFloat(i.netWeight.toFixed(3)),
-        total: i.amount,
+        total: gstEnabled ? i.totalWithGst : i.amount,
         grossWeightKg: i.grossWeightKg,
         grossWeightGm: i.grossWeightGm,
         lessWeightKg: i.lessWeightKg,
         lessWeightGm: i.lessWeightGm,
         unit: i.unit,
         netWeight: parseFloat(i.netWeight.toFixed(3)),
+        gstPercent: gstEnabled ? i.gstPercent : 0,
+        gstAmount: gstEnabled ? i.gstAmount : 0,
       }));
 
       if (hamali > 0) {
@@ -247,6 +274,9 @@ export default function BillingPage() {
         paidAmount: Number(paidAmount) || 0,
         pendingAmount,
         status,
+        gstEnabled,
+        gstNumber: gstEnabled ? GST_NUMBER : "",
+        totalGstAmount,
       };
 
       await createBill(payload);
@@ -323,6 +353,7 @@ export default function BillingPage() {
     setHamali(0);
     setRoundedOff(0);
     setPaidAmount(0);
+    setGstEnabled(false);
     setShowPrint(false);
     getBills()
       .then((data) => {
@@ -343,7 +374,11 @@ export default function BillingPage() {
     <div className="space-y-4 sm:space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <h1 className="page-header text-xl sm:text-2xl md:text-3xl">New Bill</h1>
-        <div className="flex gap-2 flex-wrap">
+        <div className="flex gap-2 flex-wrap items-center">
+          <div className="flex items-center gap-2 mr-2">
+            <Label className="text-sm font-medium">GST</Label>
+            <Switch checked={gstEnabled} onCheckedChange={setGstEnabled} />
+          </div>
           <Button variant="outline" size="sm" onClick={resetForm}>
             New
           </Button>
@@ -364,9 +399,22 @@ export default function BillingPage() {
       {/* Bill Header */}
       <div className="glass-card p-4 animate-slide-up">
         <div className="text-center mb-4">
-          <h2 className="text-xl font-bold text-foreground" style={{ fontFamily: "var(--font-display)" }}>
-            // Estimate Copy //
-          </h2>
+          {gstEnabled ? (
+            <div>
+              <div className="flex items-center justify-center gap-3 mb-1">
+                <img src="/logo.jpeg" alt="Sadik Traders" className="h-10 w-10 rounded-full object-cover" />
+                <h2 className="text-xl font-bold text-foreground" style={{ fontFamily: "var(--font-display)" }}>
+                  Sadik Traders
+                </h2>
+              </div>
+              <p className="text-xs text-muted-foreground">GSTIN: {GST_NUMBER}</p>
+              <p className="text-sm font-semibold text-foreground mt-1">// Tax Invoice //</p>
+            </div>
+          ) : (
+            <h2 className="text-xl font-bold text-foreground" style={{ fontFamily: "var(--font-display)" }}>
+              // Estimate Copy //
+            </h2>
+          )}
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-3">
@@ -413,8 +461,8 @@ export default function BillingPage() {
       </div>
 
       {/* Items Table */}
-      <div className="glass-card overflow-hidden animate-slide-up" style={{ animationDelay: "100ms" }}>
-        <div className="overflow-x-auto">
+      <div className="glass-card overflow-visible animate-slide-up" style={{ animationDelay: "100ms" }}>
+        <div className="overflow-x-auto" style={{ overflow: "visible" }}>
           <table className="w-full text-sm">
             <thead>
               <tr className="gradient-primary text-primary-foreground">
@@ -430,6 +478,7 @@ export default function BillingPage() {
                 <th className="px-2 py-2 text-center font-semibold w-20">Net Wt.</th>
                 <th className="px-2 py-2 text-center font-semibold w-16">Unit</th>
                 <th className="px-2 py-2 text-center font-semibold w-20">Rate</th>
+                {gstEnabled && <th className="px-2 py-2 text-center font-semibold w-16">GST%</th>}
                 <th className="px-2 py-2 text-right font-semibold w-24">Amount (₹)</th>
                 <th className="px-2 py-2 w-10"></th>
               </tr>
@@ -444,7 +493,7 @@ export default function BillingPage() {
                 <th></th>
                 <th></th>
                 <th></th>
-                <th></th>
+                {gstEnabled && <th></th>}
                 <th></th>
               </tr>
             </thead>
@@ -462,11 +511,11 @@ export default function BillingPage() {
                         className="h-8 text-sm border-0 bg-transparent focus-visible:ring-1"
                       />
                       {productSearch && filteredProducts.length > 0 && activeItemId === item.id && (
-                        <div className="absolute z-10 w-full mt-1 bg-white border border-border rounded shadow-lg">
+                        <div className="absolute z-[9999] w-full mt-1 bg-background border border-border rounded-md shadow-xl max-h-48 overflow-y-auto">
                           {filteredProducts.map((product) => (
                             <div
                               key={product._id}
-                              className="p-2 cursor-pointer hover:bg-gray-100"
+                              className="p-2 cursor-pointer hover:bg-accent hover:text-accent-foreground text-sm"
                               onClick={() => handleProductSelect(product, item.id)}
                             >
                               {product.name} {product.code && `(${product.code})`}
@@ -546,8 +595,20 @@ export default function BillingPage() {
                       step="0.01"
                     />
                   </td>
+                  {gstEnabled && (
+                    <td className="px-1 py-1">
+                      <Input
+                        type="number"
+                        value={item.gstPercent || ""}
+                        onChange={(e) => updateItem(item.id, "gstPercent", Number(e.target.value))}
+                        className="h-8 text-sm text-center border-0 bg-transparent focus-visible:ring-1 w-16"
+                        step="0.01"
+                        placeholder="%"
+                      />
+                    </td>
+                  )}
                   <td className="px-2 py-1.5 text-right font-mono text-sm font-medium">
-                    {item.amount.toFixed(2)}
+                    {gstEnabled ? item.totalWithGst.toFixed(2) : item.amount.toFixed(2)}
                   </td>
                   <td className="px-1 py-1">
                     <button
@@ -577,6 +638,12 @@ export default function BillingPage() {
             <span className="text-muted-foreground">Subtotal:</span>
             <span className="font-mono font-medium">₹ {subtotal.toFixed(2)}</span>
           </div>
+          {gstEnabled && (
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Total GST:</span>
+              <span className="font-mono font-medium">₹ {totalGstAmount.toFixed(2)}</span>
+            </div>
+          )}
           <div className="flex items-center justify-between gap-3">
             <Label className="text-sm text-muted-foreground shrink-0">Add: Hamali</Label>
             <Input
