@@ -165,12 +165,15 @@ export default function BillingPage() {
       prev.map((item) => {
         if (item.id !== id) return item;
         const updated = { ...item, [field]: value };
-        // If bags changed, auto-calculate grossWeightKg
+        // If bags changed, auto-calculate grossWeight and netWeight directly
         if (field === "bags") {
           const numBags = Number(value) || 0;
           const bw = Number(updated.bagWeight) || 0;
-          updated.grossWeightKg = numBags * bw;
+          const totalWeight = numBags * bw;
+          updated.grossWeightKg = totalWeight;
           updated.grossWeightGm = 0;
+          updated.lessWeightKg = 0;
+          updated.lessWeightGm = 0;
         }
         updated.netWeight = calcNetWeight(updated);
         updated.quantity = calcQuantity(updated.netWeight, updated.unit);

@@ -262,6 +262,7 @@ export default function ProductsPage() {
                 <tr className="gradient-primary text-primary-foreground">
                   <th className="px-4 py-3 text-left font-semibold">Product Name</th>
                   <th className="px-4 py-3 text-right font-semibold">Buying Price</th>
+                  <th className="px-4 py-3 text-center font-semibold">Bag Info</th>
                   <th className="px-4 py-3 text-right font-semibold">Stock</th>
                   <th className="px-4 py-3 text-center font-semibold w-24">Actions</th>
                 </tr>
@@ -275,6 +276,19 @@ export default function ProductsPage() {
                         {p.category && <p className="text-xs text-muted-foreground">{p.category}</p>}
                       </td>
                       <td className="px-4 py-3 text-right font-mono">₹{p.buyingPrice?.toFixed(2) || "0.00"}</td>
+                      <td className="px-4 py-3 text-center text-xs">
+                        {p.bagWeight ? (
+                          <div>
+                            <span className="font-medium">1 Bag = {p.bagWeight} KG</span>
+                            <br />
+                            <span className="text-muted-foreground">
+                              {Math.floor((p.stockKg + p.stockGm / 1000) / p.bagWeight)} Bags Available
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </td>
                       <td className="px-4 py-3 text-right font-mono">
                         <span className={getStockBadge(p.stockKg, p.stockGm)}>
                           {formatStock(p.stockKg, p.stockGm)}
