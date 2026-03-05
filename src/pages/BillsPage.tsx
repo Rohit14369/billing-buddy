@@ -220,6 +220,7 @@ export default function BillsPage() {
   const handlePrintBill = (bill: Bill) => {
     const items: BillItem[] = (bill.items || []).filter((i: any) => i.category !== 'charges').map((i: any, idx: number) => ({
       id: String(idx), productName: i.productName || "", quantity: i.quantity || 1,
+      bags: i.bags || 0, bagWeight: i.bagWeight || 0,
       grossWeightKg: i.grossWeightKg || 0, grossWeightGm: i.grossWeightGm || 0,
       lessWeightKg: i.lessWeightKg || 0, lessWeightGm: i.lessWeightGm || 0,
       unit: i.unit || "Kgs", rate: i.price || 0,
