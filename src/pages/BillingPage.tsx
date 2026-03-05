@@ -15,12 +15,15 @@ interface Product {
   stockKg: number;
   stockGm: number;
   code: string;
+  bagWeight?: number;
 }
 
 export interface BillItem {
   id: string;
   productName: string;
   quantity: number;
+  bags: number;
+  bagWeight: number;
   grossWeightKg: number;
   grossWeightGm: number;
   lessWeightKg: number;
@@ -78,6 +81,8 @@ const emptyItem = (): BillItem => ({
   id: generateId(),
   productName: "",
   quantity: 1,
+  bags: 0,
+  bagWeight: 0,
   grossWeightKg: 0,
   grossWeightGm: 0,
   lessWeightKg: 0,
@@ -160,6 +165,13 @@ export default function BillingPage() {
       prev.map((item) => {
         if (item.id !== id) return item;
         const updated = { ...item, [field]: value };
+        // If bags changed, auto-calculate grossWeightKg
+        if (field === "bags") {
+          const numBags = Number(value) || 0;
+          const bw = Number(updated.bagWeight) || 0;
+          updated.grossWeightKg = numBags * bw;
+          updated.grossWeightGm = 0;
+        }
         updated.netWeight = calcNetWeight(updated);
         updated.quantity = calcQuantity(updated.netWeight, updated.unit);
         updated.amount = calcAmount(updated.netWeight, updated.rate);
@@ -172,7 +184,12 @@ export default function BillingPage() {
   };
 
   const handleProductSelect = (product: Product, itemId: string) => {
-    updateItem(itemId, "productName", product.name);
+    setItems((prev) =>
+      prev.map((item) => {
+        if (item.id !== itemId) return item;
+        return { ...item, productName: product.name, bagWeight: product.bagWeight || 0 };
+      })
+    );
     setProductSearch("");
     setActiveItemId(null);
   };
@@ -461,13 +478,14 @@ export default function BillingPage() {
       </div>
 
       {/* Items Table */}
-      <div className="glass-card overflow-visible animate-slide-up" style={{ animationDelay: "100ms" }}>
+      <div className="glass-card overflow-visible animate-slide-up relative z-10" style={{ animationDelay: "100ms" }}>
         <div className="overflow-x-auto" style={{ overflow: "visible" }}>
           <table className="w-full text-sm">
             <thead>
               <tr className="gradient-primary text-primary-foreground">
                 <th className="px-2 py-2 text-left font-semibold w-10">SN.</th>
                 <th className="px-2 py-2 text-left font-semibold min-w-[140px]">Goods Supplied</th>
+                <th className="px-2 py-2 text-center font-semibold w-14">Bags</th>
                 <th className="px-2 py-2 text-center font-semibold w-16">Qty</th>
                 <th className="px-2 py-2 text-center font-semibold" colSpan={2}>
                   Gross Weight
@@ -483,6 +501,7 @@ export default function BillingPage() {
                 <th className="px-2 py-2 w-10"></th>
               </tr>
               <tr className="bg-primary/10 text-xs text-muted-foreground">
+                <th></th>
                 <th></th>
                 <th></th>
                 <th></th>
@@ -530,6 +549,19 @@ export default function BillingPage() {
                         </span>
                       )}
                     </div>
+                  </td>
+                  <td className="px-1 py-1">
+                    {item.bagWeight > 0 ? (
+                      <Input
+                        type="number"
+                        value={item.bags || ""}
+                        onChange={(e) => updateItem(item.id, "bags", Number(e.target.value))}
+                        className="h-8 text-sm text-center border-0 bg-transparent focus-visible:ring-1 w-14"
+                        placeholder="Bags"
+                      />
+                    ) : (
+                      <span className="text-xs text-muted-foreground px-1">-</span>
+                    )}
                   </td>
                   <td className="px-1 py-1">
                     <Input
@@ -632,7 +664,7 @@ export default function BillingPage() {
       </div>
 
       {/* Totals & Payment */}
-      <div className="glass-card p-4 animate-slide-up" style={{ animationDelay: "200ms" }}>
+      <div className="glass-card p-4 animate-slide-up relative z-0" style={{ animationDelay: "200ms" }}>
         <div className="max-w-sm ml-auto space-y-2">
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">Subtotal:</span>
