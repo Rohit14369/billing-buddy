@@ -570,7 +570,7 @@ export default function BillingPage() {
                     <Input
                       type="number"
                       value={Math.round(item.quantity)}
-                      readOnly
+                      onChange={(e) => updateItem(item.id, "quantity", Number(e.target.value))}
                       className="h-8 text-sm text-center border-0 bg-transparent focus-visible:ring-1"
                     />
                   </td>
