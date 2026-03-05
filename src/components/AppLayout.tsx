@@ -85,9 +85,15 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <button onClick={() => setSidebarOpen(true)} className="lg:hidden p-2 hover:bg-muted rounded-lg transition-colors">
             <Menu size={20} />
           </button>
-          <h2 className="text-lg font-semibold text-foreground" style={{ fontFamily: 'var(--font-display)' }}>
-            {navItems.find(i => i.path === location.pathname)?.title || 'Sadik Traders'}
-          </h2>
+          <div className="flex items-center gap-3">
+            <img src="/logo.jpeg" alt="Sadik Traders" className="w-9 h-9 rounded-full object-cover ring-1 ring-primary/20 hidden sm:block" />
+            <div>
+              <h2 className="text-lg font-semibold text-foreground leading-tight" style={{ fontFamily: 'var(--font-display)' }}>
+                {navItems.find(i => i.path === location.pathname)?.title || 'Sadik Traders'}
+              </h2>
+              <p className="text-[10px] text-muted-foreground hidden sm:block">Sadik Traders — Wholesale & Retail | Since 1989</p>
+            </div>
+          </div>
           <div className="ml-auto flex items-center gap-2">
             <span className={`text-xs px-2 py-1 rounded-full ${isAdmin ? 'bg-primary/10 text-primary font-medium' : 'bg-accent/10 text-accent font-medium'}`}>
               {isAdmin ? '🔑 Admin' : '👤 User'}
