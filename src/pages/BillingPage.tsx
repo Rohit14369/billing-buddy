@@ -103,7 +103,6 @@ export default function BillingPage() {
   const [saving, setSaving] = useState(false);
   const [showPrint, setShowPrint] = useState(false);
   const [productSearch, setProductSearch] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState("");
   const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [activeItemId, setActiveItemId] = useState<string | null>(null);
@@ -120,35 +119,23 @@ export default function BillingPage() {
 
   const GST_NUMBER = "27ABJPS0885K1Z0";
 
-  // Fetch all products once on mount
   useEffect(() => {
     getProducts()
       .then((data) => setAllProducts(Array.isArray(data) ? data : []))
       .catch((err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }));
   }, []);
 
-  // Get unique categories
-  const categories = Array.from(new Set(allProducts.map(p => p.category || "").filter(Boolean)));
-
-  // Filter products by search term + category
   useEffect(() => {
-    if (!productSearch.trim() && !categoryFilter) {
+    if (!productSearch.trim()) {
       setFilteredProducts([]);
       return;
     }
-    let filtered = allProducts;
-    if (categoryFilter) {
-      filtered = filtered.filter(p => (p.category || "").toLowerCase() === categoryFilter.toLowerCase());
-    }
-    if (productSearch.trim()) {
-      filtered = filtered.filter(p =>
-        p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
-        (p.code || "").toLowerCase().includes(productSearch.toLowerCase()) ||
-        (p.category || "").toLowerCase().includes(productSearch.toLowerCase())
-      );
-    }
+    let filtered = allProducts.filter(p =>
+      p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
+      (p.code || "").toLowerCase().includes(productSearch.toLowerCase())
+    );
     setFilteredProducts(filtered);
-  }, [productSearch, categoryFilter, allProducts]);
+  }, [productSearch, allProducts]);
 
   useEffect(() => {
     getBills()
@@ -175,7 +162,6 @@ export default function BillingPage() {
       prev.map((item) => {
         if (item.id !== id) return item;
         const updated = { ...item, [field]: value };
-        // If bags changed, auto-calculate grossWeight split into KG and Gm
         if (field === "bags") {
           const numBags = Number(value) || 0;
           const bw = Number(updated.bagWeight) || 0;
@@ -206,7 +192,6 @@ export default function BillingPage() {
       })
     );
     setProductSearch("");
-    setCategoryFilter("");
     setActiveItemId(null);
   };
 
@@ -495,28 +480,8 @@ export default function BillingPage() {
         </div>
       </div>
 
-      {/* Category Filter + Items Table */}
+      {/* Items Table */}
       <div className="glass-card overflow-visible animate-slide-up relative z-10" style={{ animationDelay: "100ms" }}>
-        {categories.length > 0 && (
-          <div className="p-3 border-b border-border flex items-center gap-2 flex-wrap">
-            <Label className="text-sm font-medium shrink-0">Category:</Label>
-            <button
-              onClick={() => setCategoryFilter("")}
-              className={`text-xs px-3 py-1 rounded-full border transition-colors ${!categoryFilter ? 'bg-primary text-primary-foreground' : 'border-border hover:bg-accent'}`}
-            >
-              All
-            </button>
-            {categories.map(cat => (
-              <button
-                key={cat}
-                onClick={() => setCategoryFilter(cat)}
-                className={`text-xs px-3 py-1 rounded-full border transition-colors ${categoryFilter === cat ? 'bg-primary text-primary-foreground' : 'border-border hover:bg-accent'}`}
-              >
-                {cat}
-              </button>
-            ))}
-          </div>
-        )}
         <div className="overflow-x-auto" style={{ overflow: "visible" }}>
           <table className="w-full text-sm">
             <thead>
@@ -567,7 +532,7 @@ export default function BillingPage() {
                         placeholder="Product name"
                         className="h-8 text-sm border-0 bg-transparent focus-visible:ring-1"
                       />
-                      {(productSearch || categoryFilter) && filteredProducts.length > 0 && activeItemId === item.id && (
+                      {productSearch && filteredProducts.length > 0 && activeItemId === item.id && (
                         <div className="absolute z-[9999] w-full mt-1 bg-background border border-border rounded-md shadow-xl max-h-48 overflow-y-auto">
                           {filteredProducts.map((product) => (
                             <div
@@ -576,7 +541,6 @@ export default function BillingPage() {
                               onClick={() => handleProductSelect(product, item.id)}
                             >
                               <span className="font-medium">{product.name}</span>
-                              {product.category && <span className="text-xs text-muted-foreground ml-2">[{product.category}]</span>}
                               {product.code && <span className="text-xs text-muted-foreground ml-1">({product.code})</span>}
                             </div>
                           ))}
