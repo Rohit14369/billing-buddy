@@ -250,8 +250,8 @@ export default function BillingPage() {
     }
 
     try {
-      const allProducts = await getProducts();
-      const productsList = Array.isArray(allProducts) ? allProducts : [];
+      const allProds = await getProducts();
+      const productsList = Array.isArray(allProds) ? allProds : [];
 
       for (const item of items) {
         const product = productsList.find(
