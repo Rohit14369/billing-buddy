@@ -310,7 +310,8 @@ export default function BillingPage() {
             (p: any) => p.name?.toLowerCase() === item.productName.toLowerCase()
           );
           if (product && product._id) {
-            const deductGrams = item.netWeight * 1000;
+            const grossWeight = (item.grossWeightKg || 0) + (item.grossWeightGm || 0) / 1000;
+            const deductGrams = grossWeight * 1000;
             const totalStockGrams = ((product.stockKg || 0) * 1000) + (product.stockGm || 0);
             const newStockGrams = Math.max(0, totalStockGrams - deductGrams);
             const newStockKg = Math.floor(newStockGrams / 1000);
