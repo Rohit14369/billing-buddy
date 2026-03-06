@@ -75,19 +75,56 @@ export default function ProductsPage() {
     return { stockKg: String(wholeKg), stockGm: String(remainGm) };
   };
 
+  // When adding bags, ADD to existing stock instead of replacing
+  const addBagStock = (bags: string, bwKg: string, bwGm: string, currentStockKg: string, currentStockGm: string) => {
+    const numBags = Number(bags) || 0;
+    const bagWt = getBagWeightDecimal(bwKg, bwGm);
+    const addedTotalGrams = Math.round(numBags * bagWt * 1000);
+    const existingGrams = (Number(currentStockKg) || 0) * 1000 + (Number(currentStockGm) || 0);
+    const newTotalGrams = existingGrams + addedTotalGrams;
+    const newKg = Math.floor(newTotalGrams / 1000);
+    const newGm = newTotalGrams % 1000;
+    return { stockKg: String(newKg), stockGm: String(newGm) };
+  };
+
   const handleBagsChange = (bags: string) => {
-    const stock = recalcBagTotal(bags, form.bagWeightKg, form.bagWeightGm);
-    setForm({ ...form, bags, ...stock });
+    if (editing) {
+      // For editing, add new bags to existing stock
+      const existingProduct = products.find(p => p._id === editing);
+      const existingKg = existingProduct ? String(existingProduct.stockKg || 0) : "0";
+      const existingGm = existingProduct ? String(existingProduct.stockGm || 0) : "0";
+      const stock = addBagStock(bags, form.bagWeightKg, form.bagWeightGm, existingKg, existingGm);
+      setForm({ ...form, bags, ...stock });
+    } else {
+      const stock = recalcBagTotal(bags, form.bagWeightKg, form.bagWeightGm);
+      setForm({ ...form, bags, ...stock });
+    }
   };
 
   const handleBagWeightKgChange = (bagWeightKg: string) => {
-    const stock = recalcBagTotal(form.bags, bagWeightKg, form.bagWeightGm);
-    setForm({ ...form, bagWeightKg, ...stock });
+    if (editing && form.bags) {
+      const existingProduct = products.find(p => p._id === editing);
+      const existingKg = existingProduct ? String(existingProduct.stockKg || 0) : "0";
+      const existingGm = existingProduct ? String(existingProduct.stockGm || 0) : "0";
+      const stock = addBagStock(form.bags, bagWeightKg, form.bagWeightGm, existingKg, existingGm);
+      setForm({ ...form, bagWeightKg, ...stock });
+    } else {
+      const stock = recalcBagTotal(form.bags, bagWeightKg, form.bagWeightGm);
+      setForm({ ...form, bagWeightKg, ...stock });
+    }
   };
 
   const handleBagWeightGmChange = (bagWeightGm: string) => {
-    const stock = recalcBagTotal(form.bags, form.bagWeightKg, bagWeightGm);
-    setForm({ ...form, bagWeightGm, ...stock });
+    if (editing && form.bags) {
+      const existingProduct = products.find(p => p._id === editing);
+      const existingKg = existingProduct ? String(existingProduct.stockKg || 0) : "0";
+      const existingGm = existingProduct ? String(existingProduct.stockGm || 0) : "0";
+      const stock = addBagStock(form.bags, form.bagWeightKg, bagWeightGm, existingKg, existingGm);
+      setForm({ ...form, bagWeightGm, ...stock });
+    } else {
+      const stock = recalcBagTotal(form.bags, form.bagWeightKg, bagWeightGm);
+      setForm({ ...form, bagWeightGm, ...stock });
+    }
   };
 
   const submit = async (e: React.FormEvent) => {

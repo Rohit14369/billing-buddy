@@ -120,28 +120,35 @@ export default function BillingPage() {
 
   const GST_NUMBER = "27ABJPS0885K1Z0";
 
-  const fetchAndFilterProducts = async (searchTerm: string) => {
-    try {
-      const data = await getProducts();
-      const products = Array.isArray(data) ? data : [];
-      const filtered = products.filter(p =>
-        p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (p.code || "").toLowerCase().includes(searchTerm.toLowerCase())
-      );
-      setFilteredProducts(filtered);
-    } catch (err: any) {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
-    }
-  };
-
+  // Fetch all products once on mount
   useEffect(() => {
-    if (productSearch.trim()) {
-      const timer = setTimeout(() => fetchAndFilterProducts(productSearch), 300);
-      return () => clearTimeout(timer);
-    } else {
+    getProducts()
+      .then((data) => setAllProducts(Array.isArray(data) ? data : []))
+      .catch((err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }));
+  }, []);
+
+  // Get unique categories
+  const categories = Array.from(new Set(allProducts.map(p => p.category || "").filter(Boolean)));
+
+  // Filter products by search term + category
+  useEffect(() => {
+    if (!productSearch.trim() && !categoryFilter) {
       setFilteredProducts([]);
+      return;
     }
-  }, [productSearch]);
+    let filtered = allProducts;
+    if (categoryFilter) {
+      filtered = filtered.filter(p => (p.category || "").toLowerCase() === categoryFilter.toLowerCase());
+    }
+    if (productSearch.trim()) {
+      filtered = filtered.filter(p =>
+        p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
+        (p.code || "").toLowerCase().includes(productSearch.toLowerCase()) ||
+        (p.category || "").toLowerCase().includes(productSearch.toLowerCase())
+      );
+    }
+    setFilteredProducts(filtered);
+  }, [productSearch, categoryFilter, allProducts]);
 
   useEffect(() => {
     getBills()
