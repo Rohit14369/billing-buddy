@@ -494,8 +494,28 @@ export default function BillingPage() {
         </div>
       </div>
 
-      {/* Items Table */}
+      {/* Category Filter + Items Table */}
       <div className="glass-card overflow-visible animate-slide-up relative z-10" style={{ animationDelay: "100ms" }}>
+        {categories.length > 0 && (
+          <div className="p-3 border-b border-border flex items-center gap-2 flex-wrap">
+            <Label className="text-sm font-medium shrink-0">Category:</Label>
+            <button
+              onClick={() => setCategoryFilter("")}
+              className={`text-xs px-3 py-1 rounded-full border transition-colors ${!categoryFilter ? 'bg-primary text-primary-foreground' : 'border-border hover:bg-accent'}`}
+            >
+              All
+            </button>
+            {categories.map(cat => (
+              <button
+                key={cat}
+                onClick={() => setCategoryFilter(cat)}
+                className={`text-xs px-3 py-1 rounded-full border transition-colors ${categoryFilter === cat ? 'bg-primary text-primary-foreground' : 'border-border hover:bg-accent'}`}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
+        )}
         <div className="overflow-x-auto" style={{ overflow: "visible" }}>
           <table className="w-full text-sm">
             <thead>
