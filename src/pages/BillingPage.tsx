@@ -15,6 +15,7 @@ interface Product {
   stockKg: number;
   stockGm: number;
   code: string;
+  category?: string;
   bagWeight?: number;
 }
 
@@ -102,6 +103,8 @@ export default function BillingPage() {
   const [saving, setSaving] = useState(false);
   const [showPrint, setShowPrint] = useState(false);
   const [productSearch, setProductSearch] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("");
+  const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [activeItemId, setActiveItemId] = useState<string | null>(null);
 
@@ -117,28 +120,35 @@ export default function BillingPage() {
 
   const GST_NUMBER = "27ABJPS0885K1Z0";
 
-  const fetchAndFilterProducts = async (searchTerm: string) => {
-    try {
-      const data = await getProducts();
-      const products = Array.isArray(data) ? data : [];
-      const filtered = products.filter(p =>
-        p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (p.code || "").toLowerCase().includes(searchTerm.toLowerCase())
-      );
-      setFilteredProducts(filtered);
-    } catch (err: any) {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
-    }
-  };
-
+  // Fetch all products once on mount
   useEffect(() => {
-    if (productSearch.trim()) {
-      const timer = setTimeout(() => fetchAndFilterProducts(productSearch), 300);
-      return () => clearTimeout(timer);
-    } else {
+    getProducts()
+      .then((data) => setAllProducts(Array.isArray(data) ? data : []))
+      .catch((err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }));
+  }, []);
+
+  // Get unique categories
+  const categories = Array.from(new Set(allProducts.map(p => p.category || "").filter(Boolean)));
+
+  // Filter products by search term + category
+  useEffect(() => {
+    if (!productSearch.trim() && !categoryFilter) {
       setFilteredProducts([]);
+      return;
     }
-  }, [productSearch]);
+    let filtered = allProducts;
+    if (categoryFilter) {
+      filtered = filtered.filter(p => (p.category || "").toLowerCase() === categoryFilter.toLowerCase());
+    }
+    if (productSearch.trim()) {
+      filtered = filtered.filter(p =>
+        p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
+        (p.code || "").toLowerCase().includes(productSearch.toLowerCase()) ||
+        (p.category || "").toLowerCase().includes(productSearch.toLowerCase())
+      );
+    }
+    setFilteredProducts(filtered);
+  }, [productSearch, categoryFilter, allProducts]);
 
   useEffect(() => {
     getBills()
@@ -196,6 +206,7 @@ export default function BillingPage() {
       })
     );
     setProductSearch("");
+    setCategoryFilter("");
     setActiveItemId(null);
   };
 
@@ -240,8 +251,8 @@ export default function BillingPage() {
     }
 
     try {
-      const allProducts = await getProducts();
-      const productsList = Array.isArray(allProducts) ? allProducts : [];
+      const allProds = await getProducts();
+      const productsList = Array.isArray(allProds) ? allProds : [];
 
       for (const item of items) {
         const product = productsList.find(
@@ -252,7 +263,8 @@ export default function BillingPage() {
           return;
         }
         const totalStockGrams = ((product.stockKg || 0) * 1000) + (product.stockGm || 0);
-        const requiredGrams = item.netWeight * 1000;
+        const grossWeight = (item.grossWeightKg || 0) + (item.grossWeightGm || 0) / 1000;
+        const requiredGrams = grossWeight * 1000;
         if (totalStockGrams < requiredGrams) {
           toast({ title: "Error", description: `Not enough stock for "${item.productName}"`, variant: "destructive" });
           return;
@@ -309,7 +321,8 @@ export default function BillingPage() {
             (p: any) => p.name?.toLowerCase() === item.productName.toLowerCase()
           );
           if (product && product._id) {
-            const deductGrams = item.netWeight * 1000;
+            const grossWeight = (item.grossWeightKg || 0) + (item.grossWeightGm || 0) / 1000;
+            const deductGrams = grossWeight * 1000;
             const totalStockGrams = ((product.stockKg || 0) * 1000) + (product.stockGm || 0);
             const newStockGrams = Math.max(0, totalStockGrams - deductGrams);
             const newStockKg = Math.floor(newStockGrams / 1000);
@@ -482,8 +495,28 @@ export default function BillingPage() {
         </div>
       </div>
 
-      {/* Items Table */}
+      {/* Category Filter + Items Table */}
       <div className="glass-card overflow-visible animate-slide-up relative z-10" style={{ animationDelay: "100ms" }}>
+        {categories.length > 0 && (
+          <div className="p-3 border-b border-border flex items-center gap-2 flex-wrap">
+            <Label className="text-sm font-medium shrink-0">Category:</Label>
+            <button
+              onClick={() => setCategoryFilter("")}
+              className={`text-xs px-3 py-1 rounded-full border transition-colors ${!categoryFilter ? 'bg-primary text-primary-foreground' : 'border-border hover:bg-accent'}`}
+            >
+              All
+            </button>
+            {categories.map(cat => (
+              <button
+                key={cat}
+                onClick={() => setCategoryFilter(cat)}
+                className={`text-xs px-3 py-1 rounded-full border transition-colors ${categoryFilter === cat ? 'bg-primary text-primary-foreground' : 'border-border hover:bg-accent'}`}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
+        )}
         <div className="overflow-x-auto" style={{ overflow: "visible" }}>
           <table className="w-full text-sm">
             <thead>
@@ -534,7 +567,7 @@ export default function BillingPage() {
                         placeholder="Product name"
                         className="h-8 text-sm border-0 bg-transparent focus-visible:ring-1"
                       />
-                      {productSearch && filteredProducts.length > 0 && activeItemId === item.id && (
+                      {(productSearch || categoryFilter) && filteredProducts.length > 0 && activeItemId === item.id && (
                         <div className="absolute z-[9999] w-full mt-1 bg-background border border-border rounded-md shadow-xl max-h-48 overflow-y-auto">
                           {filteredProducts.map((product) => (
                             <div
@@ -542,7 +575,9 @@ export default function BillingPage() {
                               className="p-2 cursor-pointer hover:bg-accent hover:text-accent-foreground text-sm"
                               onClick={() => handleProductSelect(product, item.id)}
                             >
-                              {product.name} {product.code && `(${product.code})`}
+                              <span className="font-medium">{product.name}</span>
+                              {product.category && <span className="text-xs text-muted-foreground ml-2">[{product.category}]</span>}
+                              {product.code && <span className="text-xs text-muted-foreground ml-1">({product.code})</span>}
                             </div>
                           ))}
                         </div>
