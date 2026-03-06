@@ -206,6 +206,7 @@ export default function BillingPage() {
       })
     );
     setProductSearch("");
+    setCategoryFilter("");
     setActiveItemId(null);
   };
 
