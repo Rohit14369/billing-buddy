@@ -103,6 +103,8 @@ export default function BillingPage() {
   const [saving, setSaving] = useState(false);
   const [showPrint, setShowPrint] = useState(false);
   const [productSearch, setProductSearch] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("");
+  const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [activeItemId, setActiveItemId] = useState<string | null>(null);
 
