@@ -566,7 +566,7 @@ export default function BillingPage() {
                         placeholder="Product name"
                         className="h-8 text-sm border-0 bg-transparent focus-visible:ring-1"
                       />
-                      {productSearch && filteredProducts.length > 0 && activeItemId === item.id && (
+                      {(productSearch || categoryFilter) && filteredProducts.length > 0 && activeItemId === item.id && (
                         <div className="absolute z-[9999] w-full mt-1 bg-background border border-border rounded-md shadow-xl max-h-48 overflow-y-auto">
                           {filteredProducts.map((product) => (
                             <div
@@ -574,7 +574,9 @@ export default function BillingPage() {
                               className="p-2 cursor-pointer hover:bg-accent hover:text-accent-foreground text-sm"
                               onClick={() => handleProductSelect(product, item.id)}
                             >
-                              {product.name} {product.code && `(${product.code})`}
+                              <span className="font-medium">{product.name}</span>
+                              {product.category && <span className="text-xs text-muted-foreground ml-2">[{product.category}]</span>}
+                              {product.code && <span className="text-xs text-muted-foreground ml-1">({product.code})</span>}
                             </div>
                           ))}
                         </div>
