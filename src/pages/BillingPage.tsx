@@ -15,6 +15,7 @@ interface Product {
   stockKg: number;
   stockGm: number;
   code: string;
+  category?: string;
   bagWeight?: number;
 }
 
