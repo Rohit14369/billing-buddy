@@ -34,7 +34,8 @@ const emptyForm = {
   stockKg: "",
   stockGm: "",
   bags: "",
-  bagWeight: "",
+  bagWeightKg: "",
+  bagWeightGm: "",
 };
 
 export default function ProductsPage() {
@@ -59,19 +60,34 @@ export default function ProductsPage() {
 
   useEffect(() => { fetchProducts(); }, []);
 
-  // Auto-calculate KG from bags
-  const handleBagsChange = (bags: string) => {
-    const numBags = Number(bags) || 0;
-    const bagWt = Number(form.bagWeight) || 0;
-    const totalKg = numBags * bagWt;
-    setForm({ ...form, bags, stockKg: String(totalKg), stockGm: "0" });
+  // Combined bag weight in KG (decimal)
+  const getBagWeightDecimal = (bwKg?: string, bwGm?: string) => {
+    return (Number(bwKg) || 0) + (Number(bwGm) || 0) / 1000;
   };
 
-  const handleBagWeightChange = (bagWeight: string) => {
-    const numBags = Number(form.bags) || 0;
-    const bagWt = Number(bagWeight) || 0;
+  // Auto-calculate stock KG and Gm from bags
+  const recalcBagTotal = (bags: string, bwKg: string, bwGm: string) => {
+    const numBags = Number(bags) || 0;
+    const bagWt = getBagWeightDecimal(bwKg, bwGm);
     const totalKg = numBags * bagWt;
-    setForm({ ...form, bagWeight, stockKg: String(totalKg), stockGm: "0" });
+    const wholeKg = Math.floor(totalKg);
+    const remainGm = Math.round((totalKg - wholeKg) * 1000);
+    return { stockKg: String(wholeKg), stockGm: String(remainGm) };
+  };
+
+  const handleBagsChange = (bags: string) => {
+    const stock = recalcBagTotal(bags, form.bagWeightKg, form.bagWeightGm);
+    setForm({ ...form, bags, ...stock });
+  };
+
+  const handleBagWeightKgChange = (bagWeightKg: string) => {
+    const stock = recalcBagTotal(form.bags, bagWeightKg, form.bagWeightGm);
+    setForm({ ...form, bagWeightKg, ...stock });
+  };
+
+  const handleBagWeightGmChange = (bagWeightGm: string) => {
+    const stock = recalcBagTotal(form.bags, form.bagWeightKg, bagWeightGm);
+    setForm({ ...form, bagWeightGm, ...stock });
   };
 
   const submit = async (e: React.FormEvent) => {
@@ -93,7 +109,7 @@ export default function ProductsPage() {
       buyingPrice: Number(form.buyingPrice),
       stockKg: Number(form.stockKg) || 0,
       stockGm: Number(form.stockGm) || 0,
-      bagWeight: Number(form.bagWeight) || 0,
+      bagWeight: getBagWeightDecimal(form.bagWeightKg, form.bagWeightGm),
     };
 
     try {
@@ -114,6 +130,9 @@ export default function ProductsPage() {
   };
 
   const handleEdit = (p: Product) => {
+    const bw = p.bagWeight || 0;
+    const bwKg = Math.floor(bw);
+    const bwGm = Math.round((bw - bwKg) * 1000);
     setForm({
       name: p.name,
       category: p.category || "",
@@ -125,7 +144,8 @@ export default function ProductsPage() {
       stockKg: String(p.stockKg || ""),
       stockGm: String(p.stockGm || ""),
       bags: "",
-      bagWeight: String(p.bagWeight || ""),
+      bagWeightKg: bwKg ? String(bwKg) : "",
+      bagWeightGm: bwGm ? String(bwGm) : "",
     });
     setEditing(p._id);
     setDialogOpen(true);
@@ -196,10 +216,14 @@ export default function ProductsPage() {
               {/* Bag Concept */}
               <div className="border border-border rounded-md p-3 space-y-2">
                 <Label className="text-sm font-semibold">Bag Entry (Optional)</Label>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   <div>
                     <Label className="text-xs">Bag Weight (KG)</Label>
-                    <Input type="number" value={form.bagWeight} onChange={(e) => handleBagWeightChange(e.target.value)} className="input-focus" step="0.01" placeholder="e.g. 10" />
+                    <Input type="number" value={form.bagWeightKg} onChange={(e) => handleBagWeightKgChange(e.target.value)} className="input-focus" step="1" placeholder="e.g. 20" />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Bag Weight (Gm)</Label>
+                    <Input type="number" value={form.bagWeightGm} onChange={(e) => handleBagWeightGmChange(e.target.value)} className="input-focus" step="1" placeholder="e.g. 500" />
                   </div>
                   <div>
                     <Label className="text-xs">No. of Bags</Label>
@@ -207,9 +231,16 @@ export default function ProductsPage() {
                   </div>
                   <div>
                     <Label className="text-xs">Auto Total</Label>
-                    <div className="h-10 flex items-center px-3 text-sm font-medium bg-muted rounded-md">
-                      {((Number(form.bags) || 0) * (Number(form.bagWeight) || 0)).toFixed(1)} KG
-                    </div>
+                    {(() => {
+                      const totalKg = (Number(form.bags) || 0) * getBagWeightDecimal(form.bagWeightKg, form.bagWeightGm);
+                      const wholeKg = Math.floor(totalKg);
+                      const remainGm = Math.round((totalKg - wholeKg) * 1000);
+                      return (
+                        <div className="h-10 flex items-center px-3 text-sm font-medium bg-muted rounded-md">
+                          {wholeKg} KG {remainGm > 0 ? `${remainGm} Gm` : ""}
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
               </div>
@@ -278,13 +309,22 @@ export default function ProductsPage() {
                       <td className="px-4 py-3 text-right font-mono">₹{p.buyingPrice?.toFixed(2) || "0.00"}</td>
                       <td className="px-4 py-3 text-center text-xs">
                         {p.bagWeight ? (
-                          <div>
-                            <span className="font-medium">1 Bag = {p.bagWeight} KG</span>
-                            <br />
-                            <span className="text-muted-foreground">
-                              {Math.floor((p.stockKg + p.stockGm / 1000) / p.bagWeight)} Bags Available
-                            </span>
-                          </div>
+                          (() => {
+                            const bwKg = Math.floor(p.bagWeight);
+                            const bwGm = Math.round((p.bagWeight - bwKg) * 1000);
+                            const bagLabel = bwGm > 0 ? `${bwKg} KG ${bwGm} Gm` : `${bwKg} KG`;
+                            const totalStockKg = p.stockKg + p.stockGm / 1000;
+                            const bagsAvail = Math.floor(totalStockKg / p.bagWeight);
+                            return (
+                              <div>
+                                <span className="font-medium">1 Bag = {bagLabel}</span>
+                                <br />
+                                <span className="text-muted-foreground">
+                                  {bagsAvail} Bags Available
+                                </span>
+                              </div>
+                            );
+                          })()
                         ) : (
                           <span className="text-muted-foreground">—</span>
                         )}
