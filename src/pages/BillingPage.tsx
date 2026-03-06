@@ -252,7 +252,8 @@ export default function BillingPage() {
           return;
         }
         const totalStockGrams = ((product.stockKg || 0) * 1000) + (product.stockGm || 0);
-        const requiredGrams = item.netWeight * 1000;
+        const grossWeight = (item.grossWeightKg || 0) + (item.grossWeightGm || 0) / 1000;
+        const requiredGrams = grossWeight * 1000;
         if (totalStockGrams < requiredGrams) {
           toast({ title: "Error", description: `Not enough stock for "${item.productName}"`, variant: "destructive" });
           return;
