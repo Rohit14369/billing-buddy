@@ -151,7 +151,7 @@ export default function BillingPage() {
     setFilteredProducts(filtered);
   }, [productSearch, allProducts]);
 
-  // Generate separate numbering for GST (INV-XXXX) and Estimate (EST-XXXX)
+  // Generate separate numbering for GST (INV-XXXX) and Estimate (1, 2, 3...)
   useEffect(() => {
     getBills()
       .then((data) => {
@@ -159,22 +159,31 @@ export default function BillingPage() {
         generateInvoiceNo(bills, gstEnabled);
       })
       .catch(() => {
-        setInvoiceNo(gstEnabled ? "INV-1001" : "EST-1001");
+        setInvoiceNo(gstEnabled ? "INV-1001" : "1");
       });
   }, [gstEnabled]);
 
   const generateInvoiceNo = (bills: any[], isGst: boolean) => {
-    const prefix = isGst ? "INV-" : "EST-";
-    const relevantBills = bills.filter((b: any) => {
-      const inv = b.invoiceNo || "";
-      return inv.startsWith(prefix);
-    });
-    const maxNum = relevantBills.reduce((max: number, b: any) => {
-      const inv = b.invoiceNo || "";
-      const num = parseInt(inv.replace(prefix, ""), 10);
-      return isNaN(num) ? max : Math.max(max, num);
-    }, 1000);
-    setInvoiceNo(`${prefix}${maxNum + 1}`);
+    if (isGst) {
+      const prefix = "INV-";
+      const relevantBills = bills.filter((b: any) => (b.invoiceNo || "").startsWith(prefix));
+      const maxNum = relevantBills.reduce((max: number, b: any) => {
+        const num = parseInt((b.invoiceNo || "").replace(prefix, ""), 10);
+        return isNaN(num) ? max : Math.max(max, num);
+      }, 1000);
+      setInvoiceNo(`${prefix}${maxNum + 1}`);
+    } else {
+      // Estimate: simple 1, 2, 3... numbering
+      const relevantBills = bills.filter((b: any) => {
+        const inv = b.invoiceNo || "";
+        return !inv.startsWith("INV-");
+      });
+      const maxNum = relevantBills.reduce((max: number, b: any) => {
+        const num = parseInt(b.invoiceNo || "", 10);
+        return isNaN(num) ? max : Math.max(max, num);
+      }, 0);
+      setInvoiceNo(`${maxNum + 1}`);
+    }
   };
 
   const updateItem = (id: string, field: keyof BillItem, value: any) => {
@@ -414,7 +423,7 @@ export default function BillingPage() {
         generateInvoiceNo(bills, gstEnabled);
       })
       .catch(() => {
-        setInvoiceNo(gstEnabled ? "INV-1001" : "EST-1001");
+        setInvoiceNo(gstEnabled ? "INV-1001" : "1");
       });
   };
 
