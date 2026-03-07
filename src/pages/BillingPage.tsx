@@ -22,6 +22,7 @@ interface Product {
 export interface BillItem {
   id: string;
   productName: string;
+  hsnCode: string;
   quantity: number;
   bags: number;
   bagWeight: number;
@@ -35,6 +36,8 @@ export interface BillItem {
   amount: number;
   gstPercent: number;
   gstAmount: number;
+  cgstAmount: number;
+  sgstAmount: number;
   totalWithGst: number;
 }
 
@@ -50,7 +53,12 @@ export interface BillData {
   grandTotal: number;
   gstEnabled: boolean;
   gstNumber: string;
+  panNumber: string;
+  buyerGstin: string;
+  state: string;
   totalGstAmount: number;
+  totalCgst: number;
+  totalSgst: number;
   paidAmount: number;
   pendingAmount: number;
   status: string;
@@ -81,6 +89,7 @@ function calcQuantity(netWeight: number, unit: "Kgs" | "Gms"): number {
 const emptyItem = (): BillItem => ({
   id: generateId(),
   productName: "",
+  hsnCode: "",
   quantity: 1,
   bags: 0,
   bagWeight: 0,
@@ -94,6 +103,8 @@ const emptyItem = (): BillItem => ({
   amount: 0,
   gstPercent: 0,
   gstAmount: 0,
+  cgstAmount: 0,
+  sgstAmount: 0,
   totalWithGst: 0,
 });
 
@@ -116,8 +127,11 @@ export default function BillingPage() {
   const [roundedOff, setRoundedOff] = useState<number>(0);
   const [paidAmount, setPaidAmount] = useState<number>(0);
   const [gstEnabled, setGstEnabled] = useState(false);
+  const [buyerGstin, setBuyerGstin] = useState("");
+  const [state, setState] = useState("");
 
   const GST_NUMBER = "27ABJPS0885K1Z0";
+  const PAN_NUMBER = "ABJPS0885K";
 
   useEffect(() => {
     getProducts()
@@ -137,21 +151,31 @@ export default function BillingPage() {
     setFilteredProducts(filtered);
   }, [productSearch, allProducts]);
 
+  // Generate separate numbering for GST (INV-XXXX) and Estimate (EST-XXXX)
   useEffect(() => {
     getBills()
       .then((data) => {
         const bills = Array.isArray(data) ? data : [];
-        const maxNum = bills.reduce((max: number, b: any) => {
-          const inv = b.invoiceNo || "";
-          const num = parseInt(inv.replace(/\D/g, ""), 10);
-          return isNaN(num) ? max : Math.max(max, num);
-        }, 0);
-        setInvoiceNo(String(maxNum + 1));
+        generateInvoiceNo(bills, gstEnabled);
       })
       .catch(() => {
-        setInvoiceNo(String(Date.now()).slice(-6));
+        setInvoiceNo(gstEnabled ? "INV-1001" : "EST-1001");
       });
-  }, []);
+  }, [gstEnabled]);
+
+  const generateInvoiceNo = (bills: any[], isGst: boolean) => {
+    const prefix = isGst ? "INV-" : "EST-";
+    const relevantBills = bills.filter((b: any) => {
+      const inv = b.invoiceNo || "";
+      return inv.startsWith(prefix);
+    });
+    const maxNum = relevantBills.reduce((max: number, b: any) => {
+      const inv = b.invoiceNo || "";
+      const num = parseInt(inv.replace(prefix, ""), 10);
+      return isNaN(num) ? max : Math.max(max, num);
+    }, 1000);
+    setInvoiceNo(`${prefix}${maxNum + 1}`);
+  };
 
   const updateItem = (id: string, field: keyof BillItem, value: any) => {
     if (field === "productName") {
@@ -178,6 +202,8 @@ export default function BillingPage() {
         updated.amount = calcAmount(updated.netWeight, updated.rate);
         const gstPct = Number(updated.gstPercent) || 0;
         updated.gstAmount = parseFloat((updated.amount * gstPct / 100).toFixed(2));
+        updated.cgstAmount = parseFloat((updated.gstAmount / 2).toFixed(2));
+        updated.sgstAmount = parseFloat((updated.gstAmount / 2).toFixed(2));
         updated.totalWithGst = parseFloat((updated.amount + updated.gstAmount).toFixed(2));
         return updated;
       })
@@ -203,6 +229,8 @@ export default function BillingPage() {
 
   const subtotal = items.reduce((sum, i) => sum + i.amount, 0);
   const totalGstAmount = gstEnabled ? items.reduce((sum, i) => sum + i.gstAmount, 0) : 0;
+  const totalCgst = gstEnabled ? items.reduce((sum, i) => sum + i.cgstAmount, 0) : 0;
+  const totalSgst = gstEnabled ? items.reduce((sum, i) => sum + i.sgstAmount, 0) : 0;
   const grandTotal = subtotal + totalGstAmount + (Number(hamali) || 0) + (Number(roundedOff) || 0);
   const pendingAmount = Math.max(0, grandTotal - (Number(paidAmount) || 0));
   const status = pendingAmount > 0 ? "PENDING" : "PAID";
@@ -219,7 +247,12 @@ export default function BillingPage() {
     grandTotal,
     gstEnabled,
     gstNumber: GST_NUMBER,
+    panNumber: PAN_NUMBER,
+    buyerGstin,
+    state,
     totalGstAmount,
+    totalCgst,
+    totalSgst,
     paidAmount: Number(paidAmount) || 0,
     pendingAmount,
     status,
@@ -259,6 +292,7 @@ export default function BillingPage() {
       setSaving(true);
       const backendItems: any[] = items.map((i) => ({
         productName: i.productName,
+        hsnCode: i.hsnCode,
         category: "general",
         price: i.rate,
         quantity: parseFloat(i.netWeight.toFixed(3)),
@@ -271,6 +305,8 @@ export default function BillingPage() {
         netWeight: parseFloat(i.netWeight.toFixed(3)),
         gstPercent: gstEnabled ? i.gstPercent : 0,
         gstAmount: gstEnabled ? i.gstAmount : 0,
+        cgstAmount: gstEnabled ? i.cgstAmount : 0,
+        sgstAmount: gstEnabled ? i.sgstAmount : 0,
       }));
 
       if (hamali > 0) {
@@ -295,7 +331,12 @@ export default function BillingPage() {
         status,
         gstEnabled,
         gstNumber: gstEnabled ? GST_NUMBER : "",
+        panNumber: gstEnabled ? PAN_NUMBER : "",
+        buyerGstin: gstEnabled ? buyerGstin : "",
+        state: gstEnabled ? state : "",
         totalGstAmount,
+        totalCgst,
+        totalSgst,
       };
 
       await createBill(payload);
@@ -320,11 +361,7 @@ export default function BillingPage() {
         }
       } catch (stockErr) {
         console.error("Stock deduction error:", stockErr);
-        toast({
-          title: "Warning",
-          description: "Failed to update stock for some products.",
-          variant: "destructive",
-        });
+        toast({ title: "Warning", description: "Failed to update stock for some products.", variant: "destructive" });
       }
 
       if (paidAmount > 0) {
@@ -338,11 +375,6 @@ export default function BillingPage() {
           });
         } catch (paymentErr) {
           console.error("Payment record error:", paymentErr);
-          toast({
-            title: "Warning",
-            description: "Failed to save payment record.",
-            variant: "destructive",
-          });
         }
       }
 
@@ -373,20 +405,16 @@ export default function BillingPage() {
     setHamali(0);
     setRoundedOff(0);
     setPaidAmount(0);
-    setGstEnabled(false);
+    setBuyerGstin("");
+    setState("");
     setShowPrint(false);
     getBills()
       .then((data) => {
         const bills = Array.isArray(data) ? data : [];
-        const maxNum = bills.reduce((max: number, b: any) => {
-          const inv = b.invoiceNo || "";
-          const num = parseInt(inv.replace(/\D/g, ""), 10);
-          return isNaN(num) ? max : Math.max(max, num);
-        }, 0);
-        setInvoiceNo(String(maxNum + 1));
+        generateInvoiceNo(bills, gstEnabled);
       })
       .catch(() => {
-        setInvoiceNo(String(Date.now()).slice(-6));
+        setInvoiceNo(gstEnabled ? "INV-1001" : "EST-1001");
       });
   };
 
@@ -399,9 +427,7 @@ export default function BillingPage() {
             <Label className="text-sm font-medium">GST</Label>
             <Switch checked={gstEnabled} onCheckedChange={setGstEnabled} />
           </div>
-          <Button variant="outline" size="sm" onClick={resetForm}>
-            New
-          </Button>
+          <Button variant="outline" size="sm" onClick={resetForm}>New</Button>
           <Button variant="outline" size="sm" onClick={handlePrint} className="gap-1">
             <Printer size={14} /> Print
           </Button>
@@ -421,14 +447,22 @@ export default function BillingPage() {
         <div className="text-center mb-4">
           {gstEnabled ? (
             <div>
+              <p className="text-[10px] text-muted-foreground mb-1">Subject to Nanded Jurisdiction</p>
               <div className="flex items-center justify-center gap-3 mb-1">
                 <img src="/logo.jpeg" alt="Sadik Traders" className="h-10 w-10 rounded-full object-cover" />
-                <h2 className="text-xl font-bold text-foreground" style={{ fontFamily: "var(--font-display)" }}>
-                  Sadik Traders
-                </h2>
+                <div>
+                  <h2 className="text-xl font-bold text-foreground" style={{ fontFamily: "var(--font-display)" }}>
+                    SADIK TRADERS
+                  </h2>
+                  <p className="text-[10px] text-muted-foreground">KIRANA MERCHANT & COMMISSION AGENT</p>
+                  <p className="text-[10px] text-muted-foreground">Old Mondha, Nanded - 431604 (M.S.)</p>
+                </div>
               </div>
-              <p className="text-xs text-muted-foreground">GSTIN: {GST_NUMBER}</p>
-              <p className="text-sm font-semibold text-foreground mt-1">// Tax Invoice //</p>
+              <div className="flex justify-center gap-6 text-xs text-muted-foreground mt-1">
+                <span>GST NO: <strong className="text-foreground">{GST_NUMBER}</strong></span>
+                <span>PAN NO: <strong className="text-foreground">{PAN_NUMBER}</strong></span>
+              </div>
+              <p className="text-sm font-semibold text-foreground mt-2">// Tax Invoice //</p>
             </div>
           ) : (
             <h2 className="text-xl font-bold text-foreground" style={{ fontFamily: "var(--font-display)" }}>
@@ -439,43 +473,35 @@ export default function BillingPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-3">
             <div className="flex items-center gap-2">
-              <Label className="w-20 text-sm font-medium shrink-0">Party:</Label>
-              <Input
-                value={partyName}
-                onChange={(e) => setPartyName(e.target.value)}
-                placeholder="Party name"
-                className="input-focus"
-              />
+              <Label className="w-20 text-sm font-medium shrink-0">Name:</Label>
+              <Input value={partyName} onChange={(e) => setPartyName(e.target.value)} placeholder="Party name" className="input-focus" />
             </div>
             <div className="flex items-center gap-2">
               <Label className="w-20 text-sm font-medium shrink-0">Date:</Label>
-              <Input
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                className="input-focus"
-              />
+              <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="input-focus" />
             </div>
+            {gstEnabled && (
+              <div className="flex items-center gap-2">
+                <Label className="w-20 text-sm font-medium shrink-0">Buyer GSTIN:</Label>
+                <Input value={buyerGstin} onChange={(e) => setBuyerGstin(e.target.value)} placeholder="Buyer's GSTIN" className="input-focus" />
+              </div>
+            )}
           </div>
           <div className="space-y-3">
             <div className="flex items-center gap-2">
-              <Label className="w-20 text-sm font-medium shrink-0">Inv. No.:</Label>
-              <Input
-                value={invoiceNo}
-                onChange={(e) => setInvoiceNo(e.target.value)}
-                placeholder="Auto-generated"
-                className="input-focus"
-              />
+              <Label className="w-20 text-sm font-medium shrink-0">{gstEnabled ? "Invoice No.:" : "No.:"}</Label>
+              <Input value={invoiceNo} onChange={(e) => setInvoiceNo(e.target.value)} placeholder="Auto-generated" className="input-focus" />
             </div>
             <div className="flex items-center gap-2">
-              <Label className="w-20 text-sm font-medium shrink-0">Mob:</Label>
-              <Input
-                value={mobile}
-                onChange={(e) => setMobile(e.target.value)}
-                placeholder="Mobile number"
-                className="input-focus"
-              />
+              <Label className="w-20 text-sm font-medium shrink-0">Mobile:</Label>
+              <Input value={mobile} onChange={(e) => setMobile(e.target.value)} placeholder="Mobile number" className="input-focus" />
             </div>
+            {gstEnabled && (
+              <div className="flex items-center gap-2">
+                <Label className="w-20 text-sm font-medium shrink-0">State:</Label>
+                <Input value={state} onChange={(e) => setState(e.target.value)} placeholder="State" className="input-focus" />
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -487,15 +513,12 @@ export default function BillingPage() {
             <thead>
               <tr className="gradient-primary text-primary-foreground">
                 <th className="px-2 py-2 text-left font-semibold w-10">SN.</th>
-                <th className="px-2 py-2 text-left font-semibold min-w-[140px]">Goods Supplied</th>
+                <th className="px-2 py-2 text-left font-semibold min-w-[140px]">Particulars</th>
+                {gstEnabled && <th className="px-2 py-2 text-center font-semibold w-20">HSN Code</th>}
                 <th className="px-2 py-2 text-center font-semibold w-14">Bags</th>
                 <th className="px-2 py-2 text-center font-semibold w-16">Qty</th>
-                <th className="px-2 py-2 text-center font-semibold" colSpan={2}>
-                  Gross Weight
-                </th>
-                <th className="px-2 py-2 text-center font-semibold" colSpan={2}>
-                  Less Weight
-                </th>
+                <th className="px-2 py-2 text-center font-semibold" colSpan={2}>Gross Weight</th>
+                <th className="px-2 py-2 text-center font-semibold" colSpan={2}>Less Weight</th>
                 <th className="px-2 py-2 text-center font-semibold w-20">Net Wt.</th>
                 <th className="px-2 py-2 text-center font-semibold w-16">Unit</th>
                 <th className="px-2 py-2 text-center font-semibold w-20">Rate</th>
@@ -506,6 +529,7 @@ export default function BillingPage() {
               <tr className="bg-primary/10 text-xs text-muted-foreground">
                 <th></th>
                 <th></th>
+                {gstEnabled && <th></th>}
                 <th></th>
                 <th></th>
                 <th className="px-2 py-1 text-center">KG</th>
@@ -516,6 +540,7 @@ export default function BillingPage() {
                 <th></th>
                 <th></th>
                 {gstEnabled && <th></th>}
+                <th></th>
                 <th></th>
               </tr>
             </thead>
@@ -554,6 +579,16 @@ export default function BillingPage() {
                       )}
                     </div>
                   </td>
+                  {gstEnabled && (
+                    <td className="px-1 py-1">
+                      <Input
+                        value={item.hsnCode}
+                        onChange={(e) => updateItem(item.id, "hsnCode", e.target.value)}
+                        className="h-8 text-sm text-center border-0 bg-transparent focus-visible:ring-1 w-20"
+                        placeholder="HSN"
+                      />
+                    </td>
+                  )}
                   <td className="px-1 py-1">
                     {item.bagWeight > 0 ? (
                       <Input
@@ -576,82 +611,37 @@ export default function BillingPage() {
                     />
                   </td>
                   <td className="px-1 py-1">
-                    <Input
-                      type="number"
-                      value={item.grossWeightKg || ""}
-                      onChange={(e) => updateItem(item.id, "grossWeightKg", Number(e.target.value))}
-                      className="h-8 text-sm text-center border-0 bg-transparent focus-visible:ring-1 w-16"
-                      step="0.01"
-                    />
+                    <Input type="number" value={item.grossWeightKg || ""} onChange={(e) => updateItem(item.id, "grossWeightKg", Number(e.target.value))} className="h-8 text-sm text-center border-0 bg-transparent focus-visible:ring-1 w-16" step="0.01" />
                   </td>
                   <td className="px-1 py-1">
-                    <Input
-                      type="number"
-                      value={item.grossWeightGm || ""}
-                      onChange={(e) => updateItem(item.id, "grossWeightGm", Number(e.target.value))}
-                      className="h-8 text-sm text-center border-0 bg-transparent focus-visible:ring-1 w-16"
-                    />
+                    <Input type="number" value={item.grossWeightGm || ""} onChange={(e) => updateItem(item.id, "grossWeightGm", Number(e.target.value))} className="h-8 text-sm text-center border-0 bg-transparent focus-visible:ring-1 w-16" />
                   </td>
                   <td className="px-1 py-1">
-                    <Input
-                      type="number"
-                      value={item.lessWeightKg || ""}
-                      onChange={(e) => updateItem(item.id, "lessWeightKg", Number(e.target.value))}
-                      className="h-8 text-sm text-center border-0 bg-transparent focus-visible:ring-1 w-16"
-                      step="0.01"
-                    />
+                    <Input type="number" value={item.lessWeightKg || ""} onChange={(e) => updateItem(item.id, "lessWeightKg", Number(e.target.value))} className="h-8 text-sm text-center border-0 bg-transparent focus-visible:ring-1 w-16" step="0.01" />
                   </td>
                   <td className="px-1 py-1">
-                    <Input
-                      type="number"
-                      value={item.lessWeightGm || ""}
-                      onChange={(e) => updateItem(item.id, "lessWeightGm", Number(e.target.value))}
-                      className="h-8 text-sm text-center border-0 bg-transparent focus-visible:ring-1 w-16"
-                    />
+                    <Input type="number" value={item.lessWeightGm || ""} onChange={(e) => updateItem(item.id, "lessWeightGm", Number(e.target.value))} className="h-8 text-sm text-center border-0 bg-transparent focus-visible:ring-1 w-16" />
                   </td>
-                  <td className="px-2 py-1.5 text-center font-mono text-sm font-medium">
-                    {item.netWeight.toFixed(2)}
-                  </td>
+                  <td className="px-2 py-1.5 text-center font-mono text-sm font-medium">{item.netWeight.toFixed(2)}</td>
                   <td className="px-1 py-1">
-                    <select
-                      value={item.unit}
-                      onChange={(e) => updateItem(item.id, "unit", e.target.value as "Kgs" | "Gms")}
-                      className="h-8 text-sm bg-transparent border-0 text-center w-16 rounded focus:ring-1 focus:ring-ring"
-                    >
+                    <select value={item.unit} onChange={(e) => updateItem(item.id, "unit", e.target.value as "Kgs" | "Gms")} className="h-8 text-sm bg-transparent border-0 text-center w-16 rounded focus:ring-1 focus:ring-ring">
                       <option value="Kgs">Kgs</option>
                       <option value="Gms">Gms</option>
                     </select>
                   </td>
                   <td className="px-1 py-1">
-                    <Input
-                      type="number"
-                      value={item.rate || ""}
-                      onChange={(e) => updateItem(item.id, "rate", Number(e.target.value))}
-                      className="h-8 text-sm text-center border-0 bg-transparent focus-visible:ring-1 w-20"
-                      step="0.01"
-                    />
+                    <Input type="number" value={item.rate || ""} onChange={(e) => updateItem(item.id, "rate", Number(e.target.value))} className="h-8 text-sm text-center border-0 bg-transparent focus-visible:ring-1 w-20" step="0.01" />
                   </td>
                   {gstEnabled && (
                     <td className="px-1 py-1">
-                      <Input
-                        type="number"
-                        value={item.gstPercent || ""}
-                        onChange={(e) => updateItem(item.id, "gstPercent", Number(e.target.value))}
-                        className="h-8 text-sm text-center border-0 bg-transparent focus-visible:ring-1 w-16"
-                        step="0.01"
-                        placeholder="%"
-                      />
+                      <Input type="number" value={item.gstPercent || ""} onChange={(e) => updateItem(item.id, "gstPercent", Number(e.target.value))} className="h-8 text-sm text-center border-0 bg-transparent focus-visible:ring-1 w-16" step="0.01" placeholder="%" />
                     </td>
                   )}
                   <td className="px-2 py-1.5 text-right font-mono text-sm font-medium">
                     {gstEnabled ? item.totalWithGst.toFixed(2) : item.amount.toFixed(2)}
                   </td>
                   <td className="px-1 py-1">
-                    <button
-                      onClick={() => removeItem(item.id)}
-                      className="text-muted-foreground hover:text-destructive p-1"
-                      disabled={items.length <= 1}
-                    >
+                    <button onClick={() => removeItem(item.id)} className="text-muted-foreground hover:text-destructive p-1" disabled={items.length <= 1}>
                       <Trash2 size={14} />
                     </button>
                   </td>
@@ -671,67 +661,47 @@ export default function BillingPage() {
       <div className="glass-card p-4 animate-slide-up relative z-0" style={{ animationDelay: "200ms" }}>
         <div className="max-w-sm ml-auto space-y-2">
           <div className="flex justify-between text-sm">
-            <span className="text-muted-foreground">Subtotal:</span>
+            <span className="text-muted-foreground">Total Amount Before Tax:</span>
             <span className="font-mono font-medium">₹ {subtotal.toFixed(2)}</span>
           </div>
           {gstEnabled && (
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Total GST:</span>
-              <span className="font-mono font-medium">₹ {totalGstAmount.toFixed(2)}</span>
-            </div>
+            <>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Add: CGST:</span>
+                <span className="font-mono font-medium">₹ {totalCgst.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Add: SGST:</span>
+                <span className="font-mono font-medium">₹ {totalSgst.toFixed(2)}</span>
+              </div>
+            </>
           )}
           <div className="flex items-center justify-between gap-3">
             <Label className="text-sm text-muted-foreground shrink-0">Add: Hamali</Label>
-            <Input
-              type="number"
-              value={hamali || ""}
-              onChange={(e) => setHamali(Number(e.target.value))}
-              className="h-8 w-28 text-right text-sm input-focus"
-              step="0.01"
-            />
+            <Input type="number" value={hamali || ""} onChange={(e) => setHamali(Number(e.target.value))} className="h-8 w-28 text-right text-sm input-focus" step="0.01" />
           </div>
           <div className="flex items-center justify-between gap-3">
-            <Label className="text-sm text-muted-foreground shrink-0">Add: Rounded Off</Label>
-            <Input
-              type="number"
-              value={roundedOff || ""}
-              onChange={(e) => setRoundedOff(Number(e.target.value))}
-              className="h-8 w-28 text-right text-sm input-focus"
-              step="0.01"
-            />
+            <Label className="text-sm text-muted-foreground shrink-0">Round Off</Label>
+            <Input type="number" value={roundedOff || ""} onChange={(e) => setRoundedOff(Number(e.target.value))} className="h-8 w-28 text-right text-sm input-focus" step="0.01" />
           </div>
           <div className="border-t border-border pt-2 flex justify-between text-base font-bold">
-            <span>Grand Total:</span>
+            <span>{gstEnabled ? "Total Amount After Tax:" : "Grand Total:"}</span>
             <span className="font-mono">₹ {grandTotal.toFixed(2)}</span>
           </div>
           <div className="border-t border-border pt-2 space-y-2">
             <div className="flex items-center justify-between gap-3">
               <Label className="text-sm font-medium shrink-0">Paid Amount:</Label>
-              <Input
-                type="number"
-                value={paidAmount || ""}
-                onChange={(e) => setPaidAmount(Number(e.target.value))}
-                className="h-8 w-28 text-right text-sm input-focus"
-                step="0.01"
-              />
+              <Input type="number" value={paidAmount || ""} onChange={(e) => setPaidAmount(Number(e.target.value))} className="h-8 w-28 text-right text-sm input-focus" step="0.01" />
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Pending:</span>
-              <span
-                className={`font-mono font-medium ${
-                  pendingAmount > 0 ? "text-destructive" : "text-success"
-                }`}
-              >
+              <span className={`font-mono font-medium ${pendingAmount > 0 ? "text-destructive" : "text-success"}`}>
                 ₹ {pendingAmount.toFixed(2)}
               </span>
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Status:</span>
-              <span
-                className={`text-xs px-2 py-0.5 rounded-full font-bold ${
-                  status === "PAID" ? "badge-success" : "badge-danger"
-                }`}
-              >
+              <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${status === "PAID" ? "badge-success" : "badge-danger"}`}>
                 {status}
               </span>
             </div>
