@@ -45,8 +45,11 @@ export default function Footer() {
           </div>
         </div>
 
-        <div className="border-t border-primary-foreground/20 mt-4 pt-4 text-center">
+        <div className="border-t border-primary-foreground/20 mt-4 pt-4 text-center space-y-2">
           <p className="text-xs opacity-60">© {new Date().getFullYear()} Sadik Traders. All rights reserved.</p>
+          <p className="text-[10px] opacity-50 italic max-w-2xl mx-auto">
+            This software is intended for business management purposes only. The user is solely responsible for verifying GST details, tax calculations, and compliance with applicable laws.
+          </p>
         </div>
       </div>
     </footer>

@@ -219,17 +219,20 @@ export default function BillsPage() {
 
   const handlePrintBill = (bill: Bill) => {
     const items: BillItem[] = (bill.items || []).filter((i: any) => i.category !== 'charges').map((i: any, idx: number) => ({
-      id: String(idx), productName: i.productName || "", quantity: i.quantity || 1,
+      id: String(idx), productName: i.productName || "", hsnCode: i.hsnCode || "", quantity: i.quantity || 1,
       bags: i.bags || 0, bagWeight: i.bagWeight || 0,
       grossWeightKg: i.grossWeightKg || 0, grossWeightGm: i.grossWeightGm || 0,
       lessWeightKg: i.lessWeightKg || 0, lessWeightGm: i.lessWeightGm || 0,
       unit: i.unit || "Kgs", rate: i.price || 0,
       netWeight: i.netWeight || i.quantity || 0, amount: i.total || 0,
       gstPercent: i.gstPercent || 0, gstAmount: i.gstAmount || 0,
+      cgstAmount: i.cgstAmount || (i.gstAmount || 0) / 2,
+      sgstAmount: i.sgstAmount || (i.gstAmount || 0) / 2,
       totalWithGst: i.totalWithGst || i.total || 0,
     }));
     const paid = (bill.paidAmount || 0) + getTotalPaidForBill(bill._id);
     const pending = Math.max(0, (bill.total || 0) - paid);
+    const totalGst = (bill as any).totalGstAmount || 0;
     const bd: BillData = {
       partyName: bill.customerName, date: bill.date || bill.createdAt || "",
       mobile: bill.mobile || "", invoiceNo: bill.invoiceNo || "", items,
@@ -237,7 +240,12 @@ export default function BillsPage() {
       subtotal: bill.subtotal || bill.total || 0, grandTotal: bill.total || 0,
       gstEnabled: (bill as any).gstEnabled || false,
       gstNumber: (bill as any).gstNumber || "",
-      totalGstAmount: (bill as any).totalGstAmount || 0,
+      panNumber: (bill as any).panNumber || "ABJPS0885K",
+      buyerGstin: (bill as any).buyerGstin || "",
+      state: (bill as any).state || "",
+      totalGstAmount: totalGst,
+      totalCgst: (bill as any).totalCgst || totalGst / 2,
+      totalSgst: (bill as any).totalSgst || totalGst / 2,
       paidAmount: paid, pendingAmount: pending,
       status: pending > 0 ? "PENDING" : "PAID",
     };
