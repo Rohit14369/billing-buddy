@@ -423,7 +423,7 @@ export default function BillingPage() {
         generateInvoiceNo(bills, gstEnabled);
       })
       .catch(() => {
-        setInvoiceNo(gstEnabled ? "INV-1001" : "EST-1001");
+        setInvoiceNo(gstEnabled ? "INV-1001" : "1");
       });
   };
 
