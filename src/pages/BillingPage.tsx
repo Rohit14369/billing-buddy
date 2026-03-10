@@ -400,7 +400,7 @@ export default function BillingPage() {
     setShowPrint(true);
     setTimeout(() => {
       const origTitle = document.title;
-      document.title = "Billing Receipt Generated Successfully.";
+      document.title = " ";
       window.print();
       document.title = origTitle;
     }, 300);
