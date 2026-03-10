@@ -226,9 +226,10 @@
   }
   html, body {
     height: auto !important;
+    max-height: 100vh !important;
     margin: 0 !important;
     padding: 0 !important;
-    overflow: visible !important;
+    overflow: hidden !important;
   }
   body * {
     visibility: hidden;
@@ -237,13 +238,17 @@
     visibility: visible;
   }
   .print-area {
-    position: absolute;
+    position: fixed;
     left: 0;
     top: 0;
     width: 100%;
     height: auto;
+    max-height: 100vh;
+    overflow: hidden;
     page-break-inside: avoid;
     break-inside: avoid;
+    page-break-after: avoid;
+    break-after: avoid;
   }
   table {
     page-break-inside: avoid;
