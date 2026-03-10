@@ -222,11 +222,10 @@
 @media print {
   @page {
     size: A4;
-    margin: 5mm;
+    margin: 4mm;
   }
   html, body {
     height: auto !important;
-    overflow: hidden !important;
     margin: 0 !important;
     padding: 0 !important;
   }
@@ -237,12 +236,11 @@
     visibility: visible;
   }
   .print-area {
-    position: absolute;
+    position: fixed;
     left: 0;
     top: 0;
     width: 100%;
-    page-break-after: avoid;
-    page-break-inside: avoid;
+    height: auto;
   }
   .no-print {
     display: none !important;
