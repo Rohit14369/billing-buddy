@@ -250,7 +250,12 @@ export default function BillsPage() {
       status: pending > 0 ? "PENDING" : "PAID",
     };
     setPrintBill(bd);
-    setTimeout(() => window.print(), 300);
+    setTimeout(() => {
+      const origTitle = document.title;
+      document.title = " ";
+      window.print();
+      document.title = origTitle;
+    }, 300);
   };
 
   const handleReturn = async () => {
