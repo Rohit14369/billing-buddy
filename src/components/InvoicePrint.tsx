@@ -140,7 +140,7 @@ export default function InvoicePrint({ bill }: Props) {
               </tr>
             );
           })}
-          {Array.from({ length: Math.max(0, 8 - bill.items.length) }).map((_, i) => (
+          {Array.from({ length: Math.max(0, 4 - bill.items.length) }).map((_, i) => (
             <tr key={`empty-${i}`}>
               <td className="border border-black p-1">&nbsp;</td>
               <td className="border border-black p-1"></td>
