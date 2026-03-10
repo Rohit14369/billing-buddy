@@ -12,7 +12,7 @@ export default function InvoicePrint({ bill }: Props) {
   };
 
   return (
-    <div className="bg-white text-black p-6 max-w-[210mm] mx-auto font-serif text-[13px] leading-tight">
+    <div className="bg-white text-black p-4 max-w-[210mm] mx-auto font-serif text-[12px] leading-tight">
       {/* Header */}
       <table className="w-full border-collapse border border-black mb-0">
         <tbody>
