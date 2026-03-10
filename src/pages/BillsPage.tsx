@@ -492,6 +492,10 @@ export default function BillsPage() {
         </div>
 
         {renderDialogs()}
+
+        <div className="print-area" ref={printRef}>
+          {printBill && <InvoicePrint bill={printBill} />}
+        </div>
       </div>
     );
   }
