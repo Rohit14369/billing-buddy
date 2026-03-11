@@ -233,14 +233,15 @@ export default function BillsPage() {
     const paid = (bill.paidAmount || 0) + getTotalPaidForBill(bill._id);
     const pending = Math.max(0, (bill.total || 0) - paid);
     const totalGst = (bill as any).totalGstAmount || 0;
+    const isGst = (bill as any).gstEnabled || (bill.invoiceNo || "").startsWith("INV-");
     const bd: BillData = {
       partyName: bill.customerName, date: bill.date || bill.createdAt || "",
       mobile: bill.mobile || "", invoiceNo: bill.invoiceNo || "", items,
       hamali: bill.hamali || 0, roundedOff: bill.roundedOff || 0,
       subtotal: bill.subtotal || bill.total || 0, grandTotal: bill.total || 0,
-      gstEnabled: (bill as any).gstEnabled || false,
-      gstNumber: (bill as any).gstNumber || "",
-      panNumber: (bill as any).panNumber || "ABJPS0885K",
+      gstEnabled: isGst,
+      gstNumber: isGst ? ((bill as any).gstNumber || "27ABJPS0885K1Z0") : "",
+      panNumber: isGst ? ((bill as any).panNumber || "ABJPS0885K") : "",
       buyerGstin: (bill as any).buyerGstin || "",
       state: (bill as any).state || "",
       totalGstAmount: totalGst,
